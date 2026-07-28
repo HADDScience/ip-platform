@@ -48,11 +48,14 @@ export interface Trademark {
   nameKo: string
   classes: string[]
   goods: string | null
+  appNo: string | null
   regNo: string | null
-  /** 등록일 또는 최종 진행일 (KST, YYYY-MM-DD) */
+  /** 마지막 진행일 (KST, YYYY-MM-DD) — 정체 일수 계산의 근거 */
   date: string | null
+  filedOn: string | null
+  registeredOn: string | null
   holder: string | null
-  status: TrademarkStatus
+  status: string
   /** 변리사 판단 등록가능성(%) */
   probability: number | null
   note: string
@@ -63,10 +66,63 @@ export interface Patent {
   title: string
   appNo: string | null
   regNo: string | null
+  /** 마지막 진행일 (KST, YYYY-MM-DD) */
   date: string | null
+  filedOn: string | null
+  registeredOn: string | null
   applicant: string
-  status: PatentStatus
+  status: string
   note: string
+}
+
+// ---------------------------------------------------------------------------
+// 진행 기록 — 사용자가 채우는 유일한 양식
+// ---------------------------------------------------------------------------
+
+/** 공이 누구에게 있는지. 미결 액션을 따로 등록하지 않기 위한 장치. */
+export const NEXT_TURNS = ["us", "firm", "none"] as const
+export type NextTurn = (typeof NEXT_TURNS)[number]
+
+export const NEXT_TURN_LABEL: Record<NextTurn, string> = {
+  us: "우리 차례",
+  firm: "상대 차례",
+  none: "대기 없음",
+}
+
+/** ip.status_options 한 행. 파이프라인 단계 정의이자 배지 색·조건부 입력칸의 출처. */
+export interface Stage {
+  kind: "trademark" | "patent"
+  value: string
+  sortOrder: number
+  tone: string
+  isOpen: boolean
+  /** 이 단계를 고르면 추가로 물어볼 칸 */
+  wantsAppNo: boolean
+  wantsRegNo: boolean
+  wantsProbability: boolean
+  wantsDue: boolean
+  selectable: boolean
+}
+
+export type ProgressSource = "manual" | "mail" | "excel"
+
+export interface ProgressEntry {
+  id: string
+  date: string
+  entityKind: "trademark" | "patent"
+  entityId: string
+  stage: string
+  /** 메일로 주고받은 기록이면 방향, 내부 결정이면 null */
+  direction: Direction | null
+  counterpart: string
+  nextTurn: NextTurn
+  dueOn: string | null
+  appNo: string | null
+  regNo: string | null
+  probability: number | null
+  note: string
+  source: ProgressSource
+  raw: string | null
 }
 
 export interface Communication {

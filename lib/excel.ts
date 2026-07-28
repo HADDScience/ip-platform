@@ -4,8 +4,10 @@ import type {
   ActionItem,
   Communication,
   Patent,
+  ProgressEntry,
   Trademark,
 } from "@/lib/types"
+import { NEXT_TURN_LABEL } from "@/lib/types"
 import { daysBetween } from "@/lib/date"
 
 type CellValue = string | number
@@ -24,17 +26,21 @@ const elapsed = (from: string | null, today: string): CellValue => {
   return d === null ? "—" : d
 }
 
+// 기존 대장 엑셀의 열 순서를 그대로 따른다. 받는 쪽이 눈으로 대조할 수 있어야 한다.
 export const TRADEMARK_COLUMNS: Column<Trademark>[] = [
   { header: "ID", width: 8, value: (t) => t.id },
-  { header: "상표명", width: 18, value: (t) => t.name },
+  { header: "이름", width: 20, value: (t) => t.name },
   { header: "한글명", width: 14, value: (t) => t.nameKo },
   { header: "상품류", width: 22, value: (t) => t.classes.join(", ") },
   { header: "지정상품", width: 42, value: (t) => dash(t.goods) },
-  { header: "등록/출원번호", width: 18, value: (t) => dash(t.regNo) },
-  { header: "기준일", width: 12, value: (t) => dash(t.date) },
+  { header: "출원번호", width: 18, value: (t) => dash(t.appNo) },
+  { header: "출원일", width: 12, value: (t) => dash(t.filedOn) },
+  { header: "등록번호", width: 16, value: (t) => dash(t.regNo) },
+  { header: "등록일", width: 12, value: (t) => dash(t.registeredOn) },
+  { header: "보유자", width: 10, value: (t) => dash(t.holder) },
+  { header: "단계", width: 12, value: (t) => t.status },
+  { header: "마지막 진행일", width: 14, value: (t) => dash(t.date) },
   { header: "경과일", width: 9, value: (t, today) => elapsed(t.date, today) },
-  { header: "출원인", width: 10, value: (t) => dash(t.holder) },
-  { header: "상태", width: 10, value: (t) => t.status },
   {
     header: "등록가능성(%)",
     width: 14,
@@ -45,14 +51,36 @@ export const TRADEMARK_COLUMNS: Column<Trademark>[] = [
 
 export const PATENT_COLUMNS: Column<Patent>[] = [
   { header: "ID", width: 8, value: (p) => p.id },
-  { header: "발명의 명칭", width: 56, value: (p) => p.title },
+  { header: "연구개발 내용", width: 56, value: (p) => p.title },
   { header: "출원번호", width: 20, value: (p) => dash(p.appNo) },
+  { header: "출원날짜", width: 12, value: (p) => dash(p.filedOn) },
   { header: "등록번호", width: 16, value: (p) => dash(p.regNo) },
-  { header: "기준일", width: 12, value: (p) => dash(p.date) },
-  { header: "경과일", width: 9, value: (p, today) => elapsed(p.date, today) },
+  { header: "등록날짜", width: 12, value: (p) => dash(p.registeredOn) },
   { header: "출원인", width: 14, value: (p) => p.applicant },
-  { header: "상태", width: 10, value: (p) => p.status },
+  { header: "단계", width: 12, value: (p) => p.status },
+  { header: "마지막 진행일", width: 14, value: (p) => dash(p.date) },
+  { header: "경과일", width: 9, value: (p, today) => elapsed(p.date, today) },
   { header: "비고", width: 90, value: (p) => p.note },
+]
+
+export const PROGRESS_COLUMNS: Column<ProgressEntry>[] = [
+  { header: "날짜", width: 12, value: (e) => e.date },
+  { header: "종류", width: 8, value: (e) => (e.entityKind === "trademark" ? "상표" : "특허") },
+  { header: "건", width: 10, value: (e) => e.entityId },
+  { header: "단계", width: 12, value: (e) => e.stage },
+  { header: "주고받음", width: 10, value: (e) => dash(e.direction) },
+  { header: "상대", width: 14, value: (e) => e.counterpart },
+  { header: "다음 차례", width: 12, value: (e) => NEXT_TURN_LABEL[e.nextTurn] },
+  { header: "기한", width: 12, value: (e) => dash(e.dueOn) },
+  { header: "출원번호", width: 18, value: (e) => dash(e.appNo) },
+  { header: "등록번호", width: 16, value: (e) => dash(e.regNo) },
+  {
+    header: "등록가능성(%)",
+    width: 14,
+    value: (e) => (e.probability === null ? "—" : e.probability),
+  },
+  { header: "메모", width: 80, value: (e) => e.note },
+  { header: "출처", width: 8, value: (e) => e.source },
 ]
 
 export const COMMUNICATION_COLUMNS: Column<Communication>[] = [
@@ -142,13 +170,12 @@ async function write(specs: SheetSpec[], today: string, name: string) {
   xlsx.writeFile(book, name)
 }
 
-/** 전체 내보내기 — 상표 / 특허 / 커뮤니케이션 로그 / 미결 액션 4개 시트 */
+/** 전체 내보내기 — 상표 / 특허 / 진행 기록 3개 시트 */
 export async function exportAll(
   data: {
     trademarks: Trademark[]
     patents: Patent[]
-    communications: Communication[]
-    actions: ActionItem[]
+    progress: ProgressEntry[]
   },
   today: string
 ): Promise<void> {
@@ -156,8 +183,7 @@ export async function exportAll(
     [
       sheetSpec("상표", data.trademarks, TRADEMARK_COLUMNS),
       sheetSpec("특허", data.patents, PATENT_COLUMNS),
-      sheetSpec("커뮤니케이션 로그", data.communications, COMMUNICATION_COLUMNS),
-      sheetSpec("미결 액션", data.actions, ACTION_COLUMNS),
+      sheetSpec("진행 기록", data.progress, PROGRESS_COLUMNS),
     ],
     today,
     fileName("현황", today)

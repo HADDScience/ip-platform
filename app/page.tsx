@@ -1,5 +1,5 @@
-import { DashboardView } from "@/components/ip/dashboard-view"
+import { RecordView } from "@/components/ip/record-view"
 
 export default function Page() {
-  return <DashboardView />
+  return <RecordView />
 }

@@ -22,14 +22,13 @@ export function SiteHeader() {
   const today = useToday()
   const { resolvedTheme, setTheme } = useTheme()
   const { member, signOut } = useAuth()
-  const { meta, trademarks, patents, communications, actions, refresh, reloading } =
-    useData()
+  const { meta, trademarks, patents, progress, refresh, reloading } = useData()
   const [busy, setBusy] = useState(false)
 
   async function onExportAll() {
     setBusy(true)
     try {
-      await exportAll({ trademarks, patents, communications, actions }, today)
+      await exportAll({ trademarks, patents, progress }, today)
     } finally {
       setBusy(false)
     }

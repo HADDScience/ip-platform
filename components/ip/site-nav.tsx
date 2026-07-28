@@ -1,11 +1,14 @@
 "use client"
 
+import { useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { useData } from "@/components/ip/data-provider"
 import { useAuth } from "@/components/ip/auth-gate"
+import { useToday } from "@/hooks/use-today"
+import { detect } from "@/lib/detect"
 
 function isActive(pathname: string, href: string): boolean {
   const path = pathname.replace(/\/+$/, "") || "/"
@@ -15,31 +18,26 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteNav() {
   const pathname = usePathname()
-  const { communications, actions, flags } = useData()
+  const today = useToday()
+  const { trademarks, patents, progress } = useData()
   const { isOwner } = useAuth()
 
-  // 배지는 "지금 처리해야 할 것"만 센다. 완료 처리된 건 빠진다.
+  // 배지는 "지금 손대야 할 것"만 센다.
+  const badge = useMemo(() => {
+    const latest = new Map<string, (typeof progress)[number]>()
+    for (const e of progress) {
+      const k = `${e.entityKind}:${e.entityId}`
+      const cur = latest.get(k)
+      if (!cur || e.date > cur.date) latest.set(k, e)
+    }
+    const ours = [...latest.values()].filter((e) => e.nextTurn === "us").length
+    return ours + detect(trademarks, patents, today).length
+  }, [progress, trademarks, patents, today])
+
   const items: { href: string; label: string; badge?: number }[] = [
-    { href: "/", label: "대시보드" },
-    // 주 입력 경로. 메일 한 통으로 기록·상태 변경을 함께 처리한다.
-    { href: "/intake", label: "메일로 입력" },
-    { href: "/trademarks", label: "상표" },
-    { href: "/patents", label: "특허" },
-    {
-      href: "/communications",
-      label: "커뮤니케이션",
-      badge: communications.filter((c) => c.open).length,
-    },
-    {
-      href: "/actions",
-      label: "미결 액션",
-      badge: actions.filter((a) => a.state === "open").length,
-    },
-    {
-      href: "/integrity",
-      label: "정합성 경고",
-      badge: flags.filter((f) => f.state === "open").length,
-    },
+    { href: "/", label: "기록하기" },
+    { href: "/register", label: "대장" },
+    { href: "/todo", label: "내 차례", badge },
   ]
 
   // 멤버 관리는 관리자에게만 보인다.

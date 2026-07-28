@@ -2,20 +2,34 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { staleLevel } from "@/lib/date"
 
-/** 상태 → 색 톤. 시드에 등장하는 상표/특허 상태를 모두 덮는다. */
+/**
+ * 단계 → 색 톤. 상표/특허를 합친 통합 파이프라인 전체를 덮는다.
+ * 값 자체는 ip.status_options 에서 오므로, 여기 없는 단계는 회색으로 떨어진다.
+ */
+const EMERALD =
+  "bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
+const SKY = "bg-sky-500/12 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300"
+const INDIGO =
+  "bg-indigo-500/12 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300"
+const AMBER = "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+const RED = "bg-red-500/12 text-red-700 dark:bg-red-400/15 dark:text-red-300"
+const VIOLET =
+  "bg-violet-500/12 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300"
+const MUTED = "bg-muted text-muted-foreground"
+
 const STATUS_TONE: Record<string, string> = {
-  등록완료:
-    "bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
-  등록: "bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
-  출원: "bg-sky-500/12 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300",
-  출원준비:
-    "bg-indigo-500/12 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300",
-  검토중:
-    "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
-  거절결정: "bg-red-500/12 text-red-700 dark:bg-red-400/15 dark:text-red-300",
-  중단: "bg-muted text-muted-foreground",
-  아이디어:
-    "bg-violet-500/12 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
+  아이디어: VIOLET,
+  검토요청: SKY,
+  검토의견: AMBER,
+  출원준비: INDIGO,
+  출원: INDIGO,
+  출원공고: SKY,
+  의견제출통지: RED,
+  보정서제출: AMBER,
+  심사중: AMBER,
+  등록: EMERALD,
+  거절확정: RED,
+  "포기·중단": MUTED,
 }
 
 export function StatusBadge({

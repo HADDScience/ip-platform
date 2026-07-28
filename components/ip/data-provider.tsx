@@ -16,6 +16,8 @@ import type {
   Communication,
   IntegrityFlagRow,
   Patent,
+  ProgressEntry,
+  Stage,
   StatusOption,
   Trademark,
 } from "@/lib/types"
@@ -24,10 +26,14 @@ interface DataValue {
   meta: OrgMeta
   trademarks: Trademark[]
   patents: Patent[]
+  /** 진행 기록 — 사용자가 채우는 유일한 양식의 결과 */
+  progress: ProgressEntry[]
   communications: Communication[]
   actions: ActionItem[]
   flags: IntegrityFlagRow[]
   statusOptions: StatusOption[]
+  /** 파이프라인 단계 정의. 양식의 조건부 입력칸이 여기서 온다. */
+  stages: Stage[]
   /** 상태 목록에서 "진행 중"으로 분류된 값 (정체 일수 계산 대상) */
   openStatuses: (kind: "trademark" | "patent") => Set<string>
   refresh: () => Promise<void>
