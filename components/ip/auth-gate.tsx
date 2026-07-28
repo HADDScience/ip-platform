@@ -29,14 +29,16 @@ interface AuthValue {
  * Supabase 의 카카오 프로바이더는 `account_email profile_image profile_nickname` 를
  * 고정으로 요청한다. 클라이언트의 scopes 옵션은 이 기본값을 대체하지 않고 덧붙기만 하고,
  * `external_kakao_email_optional` 도 응답 처리에만 영향을 줄 뿐 요청 scope 를 바꾸지 않는다.
+ * (supabase/supabase#36878 로 아직 열려 있는 문제)
  *
- * 카카오는 설정되지 않은 동의항목이 섞여 있으면 KOE205 로 인가를 거절하는데,
- * `account_email` 은 비즈 앱 전환을 해야 열린다.
+ * 카카오는 설정되지 않은 동의항목이 섞여 있으면 KOE205 로 인가를 거절하므로,
+ * 콘솔에서 해당 항목을 열어야 로그인이 된다. 2026-07-28 개인 개발자 비즈 앱 전환과
+ * 동의항목 설정을 마쳐 활성화했다.
  *
- * 따라서 전환 전까지는 버튼을 감춘다. 전환 후 카카오 콘솔에서
- * [카카오 로그인 > 동의항목] 의 카카오계정(이메일)·프로필 사진을 열고 이 값을 true 로 바꾸면 된다.
+ * 이메일은 우리 쪽에서 필수가 아니다. 승인은 관리자 승인으로 이뤄지고,
+ * 멤버 식별자는 신청서의 업무 이메일을 우선한다(20260728070000_prefer_work_email).
  */
-const KAKAO_ENABLED = false
+const KAKAO_ENABLED = true
 
 const AuthContext = createContext<AuthValue | null>(null)
 
@@ -334,6 +336,10 @@ function AccessRequestForm({
             placeholder="name@haddscience.com"
             className="h-8 text-xs"
           />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            입력하시면 이 주소를 식별자로 쓰고, 소셜 계정 이메일은 저장하지
+            않습니다.
+          </p>
         </Field>
 
         <Field label="남길 말">
