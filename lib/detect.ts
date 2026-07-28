@@ -80,15 +80,35 @@ function rows(trademarks: Trademark[], patents: Patent[]): Row[] {
   ]
 }
 
-/** 어느 단계부터 출원번호가 있어야 하는가 */
+/**
+ * 출원번호가 있어야 하는 단계.
+ *
+ * 등록·거절확정은 뺀다. 상표 대장은 「등록/출원번호」가 한 칸이라 등록된 건에는
+ * 등록번호만 남아 있고 출원번호가 애초에 없다. 그것까지 잡으면 등록된 상표
+ * 전부가 매번 경고로 뜬다.
+ */
 const FILED_STAGES = new Set([
   "출원",
   "출원공고",
   "의견제출통지",
   "보정서제출",
   "심사중",
-  "등록",
-  "거절확정",
+])
+
+/**
+ * 정체 판정 대상 단계.
+ *
+ * 출원·출원공고·심사중은 뺀다. 관청 심사는 원래 1~2년 걸리므로
+ * "932일째 진행 없음"은 문제가 아니라 정상이다. 공이 우리 쪽에 있어서
+ * 실제로 멈춰 있는 단계만 본다.
+ */
+const STALE_STAGES = new Set([
+  "아이디어",
+  "검토요청",
+  "검토의견",
+  "출원준비",
+  "의견제출통지",
+  "보정서제출",
 ])
 
 export function detect(
@@ -200,7 +220,18 @@ export function detect(
       })
     }
 
-    if (r.regNo && NUM_PREFIX.test(r.regNo) && !REG_NO.test(r.regNo)) {
+    // 출원번호를 등록번호 칸에 넣은 경우. 엑셀이 「등록/출원번호」 한 칸이라 흔하다.
+    if (r.regNo && APP_NO.test(r.regNo)) {
+      out.push({
+        key: `wrong-col:${r.id}`,
+        level: "error",
+        kind: r.kind,
+        ids: [r.id],
+        title: "출원번호가 등록번호 칸에 들어 있습니다",
+        detail: `${r.regNo} 는 출원번호 형태입니다 (등록번호는 NN-NNNNNNN).`,
+        field: "regNo",
+      })
+    } else if (r.regNo && NUM_PREFIX.test(r.regNo) && !REG_NO.test(r.regNo)) {
       out.push({
         key: `shape-reg:${r.id}`,
         level: "warn",
@@ -224,7 +255,8 @@ export function detect(
       })
     }
 
-    if (r.regNo && r.status !== "등록") {
+    // 등록번호 칸에 출원번호가 들어 있는 경우는 위에서 이미 잡았으므로 중복해서 세지 않는다.
+    if (r.regNo && !APP_NO.test(r.regNo) && r.status !== "등록") {
       out.push({
         key: `reg-stage:${r.id}`,
         level: "warn",
@@ -304,7 +336,7 @@ export function detect(
   for (const r of all) {
     if (!r.refDate) continue
     const days = daysBetween(r.refDate, today)
-    if (days !== null && days >= 90 && !["등록", "거절확정", "포기·중단"].includes(r.status)) {
+    if (days !== null && days >= 90 && STALE_STAGES.has(r.status)) {
       out.push({
         key: `stale:${r.id}`,
         level: "warn",
