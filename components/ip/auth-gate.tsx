@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState } from "react"
 import type { Session } from "@supabase/supabase-js"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase"
 
 interface Member {
@@ -17,6 +19,7 @@ interface AuthValue {
   session: Session
   member: Member
   canWrite: boolean
+  isOwner: boolean
   signOut: () => Promise<void>
 }
 
@@ -28,10 +31,13 @@ export function useAuth(): AuthValue {
   return value
 }
 
+type RequestState = "pending" | "approved" | "rejected"
+
 type Phase =
   | { kind: "loading" }
   | { kind: "signed-out" }
-  | { kind: "no-access"; email: string }
+  | { kind: "needs-request"; session: Session }
+  | { kind: "awaiting"; session: Session; state: RequestState }
   | { kind: "ready"; session: Session; member: Member }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -48,8 +54,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // 허용목록에 없는 계정은 로그인은 되지만 멤버 행이 없다.
-      const { data, error } = await supabase
+      const { data: memberRow } = await supabase
         .from("members")
         .select("user_id, email, display_name, role")
         .eq("user_id", session.user.id)
@@ -57,37 +62,49 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
       if (cancelled) return
 
-      if (error || !data) {
+      if (memberRow) {
+        const row = memberRow as {
+          user_id: string
+          email: string
+          display_name: string | null
+          role: Member["role"]
+        }
         setPhase({
-          kind: "no-access",
-          email: session.user.email ?? "(이메일 없음)",
+          kind: "ready",
+          session,
+          member: {
+            userId: row.user_id,
+            email: row.email,
+            displayName: row.display_name,
+            role: row.role,
+          },
         })
         return
       }
 
-      const row = data as {
-        user_id: string
-        email: string
-        display_name: string | null
-        role: Member["role"]
-      }
-      setPhase({
-        kind: "ready",
-        session,
-        member: {
-          userId: row.user_id,
-          email: row.email,
-          displayName: row.display_name,
-          role: row.role,
-        },
-      })
+      // 멤버가 아니면 접근 요청 상태를 본다.
+      const { data: reqRow } = await supabase
+        .from("access_requests")
+        .select("state")
+        .eq("user_id", session.user.id)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      const state = (reqRow as { state: RequestState } | null)?.state
+      setPhase(
+        state && state !== "rejected"
+          ? { kind: "awaiting", session, state }
+          : state === "rejected"
+            ? { kind: "awaiting", session, state }
+            : { kind: "needs-request", session }
+      )
     }
 
     supabase.auth.getSession().then(({ data }) => resolve(data.session))
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
       resolve(session)
-    })
+    )
 
     return () => {
       cancelled = true
@@ -99,7 +116,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setPending(provider)
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.href },
+      options: {
+        redirectTo: window.location.href,
+        // 카카오는 콘솔에 열려 있지 않은 동의항목을 요청하면 KOE205 로 거절한다.
+        // 승인 흐름이 있어 이메일이 필요 없으므로 닉네임만 받는다.
+        ...(provider === "kakao" ? { scopes: "profile_nickname" } : {}),
+      },
     })
     if (error) {
       setPending(null)
@@ -131,7 +153,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             지식재산권 팔로우업
           </h1>
           <p className="mt-2 text-xs/relaxed text-muted-foreground">
-            사내 계정으로 로그인해야 열람할 수 있습니다.
+            로그인 후 접근 신청을 하면 관리자 승인 뒤 이용할 수 있습니다.
           </p>
 
           <div className="mt-5 flex flex-col gap-2">
@@ -160,26 +182,56 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (phase.kind === "no-access") {
+  if (phase.kind === "needs-request") {
+    return (
+      <Centered>
+        <AccessRequestForm
+          session={phase.session}
+          onDone={() =>
+            setPhase({
+              kind: "awaiting",
+              session: phase.session,
+              state: "pending",
+            })
+          }
+          onSignOut={signOut}
+        />
+      </Centered>
+    )
+  }
+
+  if (phase.kind === "awaiting") {
+    const rejected = phase.state === "rejected"
     return (
       <Centered>
         <div className="w-full max-w-sm">
           <h1 className="font-heading text-base font-semibold">
-            접근 권한이 없습니다
+            {rejected ? "접근이 거절되었습니다" : "승인 대기 중입니다"}
           </h1>
           <p className="mt-2 text-xs/relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">{phase.email}</span>{" "}
-            계정은 허용 목록에 없습니다. 담당자(정우창)에게 이 이메일로 권한
-            요청을 남겨 주세요.
+            {rejected
+              ? "담당자에게 문의하시거나, 정보를 수정해 다시 신청할 수 있습니다."
+              : "관리자(정우창)가 승인하면 바로 이용할 수 있습니다. 승인 후 이 페이지를 새로고침해 주세요."}
           </p>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            카카오 계정으로 로그인하셨고 이메일이 표시되지 않는다면, 카카오
-            이메일 제공 동의가 꺼져 있는 경우입니다. Google 계정으로 시도해
-            보세요.
-          </p>
-          <Button variant="outline" onClick={signOut} className="mt-4">
-            다른 계정으로 로그인
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button size="sm" onClick={() => window.location.reload()}>
+              새로고침
+            </Button>
+            {rejected ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setPhase({ kind: "needs-request", session: phase.session })
+                }
+              >
+                다시 신청
+              </Button>
+            ) : null}
+            <Button size="sm" variant="ghost" onClick={() => void signOut()}>
+              로그아웃
+            </Button>
+          </div>
         </div>
       </Centered>
     )
@@ -191,11 +243,138 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         session: phase.session,
         member: phase.member,
         canWrite: phase.member.role !== "viewer",
+        isOwner: phase.member.role === "owner",
         signOut,
       }}
     >
       {children}
     </AuthContext.Provider>
+  )
+}
+
+function AccessRequestForm({
+  session,
+  onDone,
+  onSignOut,
+}: {
+  session: Session
+  onDone: () => void
+  onSignOut: () => Promise<void>
+}) {
+  const providerEmail = session.user.email ?? ""
+  const meta = session.user.user_metadata as Record<string, unknown>
+  const [name, setName] = useState(
+    String(meta?.full_name ?? meta?.name ?? "") || ""
+  )
+  const [workEmail, setWorkEmail] = useState(
+    providerEmail.endsWith("@haddscience.com") ? providerEmail : ""
+  )
+  const [message, setMessage] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (!name.trim()) {
+      setError("이름을 입력해 주세요.")
+      return
+    }
+    setSaving(true)
+    setError(null)
+    const { error: err } = await supabase.from("access_requests").upsert({
+      user_id: session.user.id,
+      provider: session.user.app_metadata?.provider ?? null,
+      provider_email: providerEmail || null,
+      display_name: name.trim(),
+      work_email: workEmail.trim() || null,
+      message: message.trim(),
+      state: "pending",
+    })
+    setSaving(false)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    onDone()
+  }
+
+  return (
+    <div className="w-full max-w-sm">
+      <h1 className="font-heading text-base font-semibold">접근 신청</h1>
+      <p className="mt-2 text-xs/relaxed text-muted-foreground">
+        관리자가 확인할 수 있도록 본인 정보를 남겨 주세요. 승인 후 이용할 수
+        있습니다.
+      </p>
+
+      <div className="mt-4 flex flex-col gap-3">
+        <Field label="이름" required>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="정우창"
+            className="h-8 text-xs"
+          />
+        </Field>
+
+        <Field label="업무 이메일 (네이버웍스)">
+          <Input
+            value={workEmail}
+            onChange={(e) => setWorkEmail(e.target.value)}
+            placeholder="name@haddscience.com"
+            className="h-8 text-xs"
+          />
+        </Field>
+
+        <Field label="남길 말">
+          <Textarea
+            value={message}
+            rows={2}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="소속·용도 등"
+            className="text-xs"
+          />
+        </Field>
+
+        <p className="text-[11px] text-muted-foreground">
+          로그인 계정:{" "}
+          <span className="font-medium text-foreground">
+            {providerEmail || "(이메일 없음 · 카카오)"}
+          </span>
+        </p>
+
+        {error ? (
+          <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>
+        ) : null}
+
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => void submit()} disabled={saving}>
+            {saving ? "보내는 중…" : "신청하기"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => void onSignOut()}>
+            로그아웃
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+        {label}
+        {required ? <span className="ml-0.5 text-red-500">*</span> : null}
+      </label>
+      {children}
+    </div>
   )
 }
 

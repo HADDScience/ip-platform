@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { useData } from "@/components/ip/data-provider"
+import { useAuth } from "@/components/ip/auth-gate"
 
 function isActive(pathname: string, href: string): boolean {
   const path = pathname.replace(/\/+$/, "") || "/"
@@ -15,6 +16,7 @@ function isActive(pathname: string, href: string): boolean {
 export function SiteNav() {
   const pathname = usePathname()
   const { communications, actions, flags } = useData()
+  const { isOwner } = useAuth()
 
   // 배지는 "지금 처리해야 할 것"만 센다. 완료 처리된 건 빠진다.
   const items: { href: string; label: string; badge?: number }[] = [
@@ -37,6 +39,9 @@ export function SiteNav() {
       badge: flags.filter((f) => f.state === "open").length,
     },
   ]
+
+  // 멤버 관리는 관리자에게만 보인다.
+  if (isOwner) items.push({ href: "/members", label: "멤버" })
 
   return (
     <nav className="sticky top-[57px] z-30 border-b border-border/60 bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/70">
