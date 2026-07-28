@@ -23,6 +23,21 @@ interface AuthValue {
   signOut: () => Promise<void>
 }
 
+/**
+ * 카카오 로그인 노출 여부.
+ *
+ * Supabase 의 카카오 프로바이더는 `account_email profile_image profile_nickname` 를
+ * 고정으로 요청한다. 클라이언트의 scopes 옵션은 이 기본값을 대체하지 않고 덧붙기만 하고,
+ * `external_kakao_email_optional` 도 응답 처리에만 영향을 줄 뿐 요청 scope 를 바꾸지 않는다.
+ *
+ * 카카오는 설정되지 않은 동의항목이 섞여 있으면 KOE205 로 인가를 거절하는데,
+ * `account_email` 은 비즈 앱 전환을 해야 열린다.
+ *
+ * 따라서 전환 전까지는 버튼을 감춘다. 전환 후 카카오 콘솔에서
+ * [카카오 로그인 > 동의항목] 의 카카오계정(이메일)·프로필 사진을 열고 이 값을 true 로 바꾸면 된다.
+ */
+const KAKAO_ENABLED = false
+
 const AuthContext = createContext<AuthValue | null>(null)
 
 export function useAuth(): AuthValue {
@@ -116,12 +131,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setPending(provider)
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: window.location.href,
-        // 카카오는 콘솔에 열려 있지 않은 동의항목을 요청하면 KOE205 로 거절한다.
-        // 승인 흐름이 있어 이메일이 필요 없으므로 닉네임만 받는다.
-        ...(provider === "kakao" ? { scopes: "profile_nickname" } : {}),
-      },
+      options: { redirectTo: window.location.href },
     })
     if (error) {
       setPending(null)
@@ -164,14 +174,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             >
               {pending === "google" ? "이동 중…" : "Google 계정으로 로그인"}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => signIn("kakao")}
-              disabled={pending !== null}
-              className="w-full"
-            >
-              {pending === "kakao" ? "이동 중…" : "카카오로 로그인"}
-            </Button>
+            {KAKAO_ENABLED ? (
+              <Button
+                variant="outline"
+                onClick={() => signIn("kakao")}
+                disabled={pending !== null}
+                className="w-full"
+              >
+                {pending === "kakao" ? "이동 중…" : "카카오로 로그인"}
+              </Button>
+            ) : null}
           </div>
 
           <p className="mt-4 text-[11px] text-muted-foreground">
