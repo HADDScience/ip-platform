@@ -8,15 +8,29 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { StageSlider } from "@/components/ip/stage-slider"
 import { useData } from "@/components/ip/data-provider"
 import { useToday } from "@/hooks/use-today"
-import { saveProgress } from "@/lib/db"
-import { NEXT_TURN_LABEL, NEXT_TURNS } from "@/lib/types"
-import type { NextTurn, ProgressEntry, Stage } from "@/lib/types"
+import { createCase, saveProgress } from "@/lib/db"
+import {
+  NEXT_TURN_LABEL,
+  NEXT_TURNS,
+  PROGRESS_DIRECTIONS,
+  RIGHT_KINDS,
+} from "@/lib/types"
+import type {
+  NextTurn,
+  ProgressDirection,
+  ProgressEntry,
+  Stage,
+} from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /**
@@ -29,6 +43,8 @@ import { cn } from "@/lib/utils"
  * 어느 칸이 필요한지는 ip.status_options 의 wants_* 열에서 오므로,
  * 단계를 추가할 때 이 파일을 고칠 필요가 없다.
  */
+
+const NEW_CASE = "__NEW__"
 
 function blank(date: string): ProgressEntry {
   return {
@@ -53,23 +69,82 @@ function blank(date: string): ProgressEntry {
 function Field({
   label,
   hint,
+  help,
   children,
   className,
 }: {
   label: string
   hint?: string
+  help?: React.ReactNode
   children: React.ReactNode
   className?: string
 }) {
+  const [open, setOpen] = useState(false)
   return (
     <div className={className}>
-      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-        {label}
-      </label>
+      <div className="mb-1 flex items-center gap-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          {label}
+        </label>
+        {help ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={`${label} 설명`}
+            className={cn(
+              "grid size-4 shrink-0 place-items-center rounded-full text-[10px] leading-none font-semibold transition-colors",
+              open
+                ? "bg-foreground text-background"
+                : "bg-foreground/10 text-muted-foreground hover:bg-foreground/20"
+            )}
+          >
+            ?
+          </button>
+        ) : null}
+      </div>
+      {help && open ? (
+        <div className="mb-1.5 rounded-md bg-muted/60 px-2 py-1.5 text-[10px]/relaxed text-muted-foreground">
+          {help}
+        </div>
+      ) : null}
       {children}
       {hint ? (
         <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p>
       ) : null}
+    </div>
+  )
+}
+
+/** 두세 개짜리 선택은 드롭다운보다 나란한 버튼이 빠르고, 모바일에서 탭 한 번이다. */
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; disabled?: boolean }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex w-full overflow-hidden rounded-md ring-1 ring-foreground/15">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          disabled={o.disabled}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "min-h-8 flex-1 px-2 text-xs font-medium transition-colors",
+            value === o.value
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+            o.disabled && "cursor-not-allowed opacity-40 hover:bg-transparent"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -86,37 +161,14 @@ export function ProgressForm({
   const today = useToday()
   const { trademarks, patents, stages, refresh } = useData()
   const [draft, setDraft] = useState<ProgressEntry>(initial ?? blank(today))
+  const [newName, setNewName] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const patch = (p: Partial<ProgressEntry>) =>
-    setDraft((d) => ({ ...d, ...p }))
+  const patch = (p: Partial<ProgressEntry>) => setDraft((d) => ({ ...d, ...p }))
 
   const isNew = !draft.id
-
-  // 건 목록 — 상표와 특허를 한 드롭다운에 둔다. 사용자는 종류를 먼저 고르지 않는다.
-  const cases = useMemo(
-    () => [
-      ...trademarks.map((t) => ({
-        key: `trademark:${t.id}`,
-        kind: "trademark" as const,
-        id: t.id,
-        label: `상표 · ${t.name}`,
-      })),
-      ...patents.map((p) => ({
-        key: `patent:${p.id}`,
-        kind: "patent" as const,
-        id: p.id,
-        label: `특허 · ${p.title.slice(0, 40)}${p.title.length > 40 ? "…" : ""}`,
-      })),
-    ],
-    [trademarks, patents]
-  )
-
-  const caseItems = useMemo(
-    () => Object.fromEntries(cases.map((c) => [c.key, c.label])),
-    [cases]
-  )
+  const creating = draft.entityId === NEW_CASE
 
   const stageList = useMemo(
     () =>
@@ -126,21 +178,43 @@ export function ProgressForm({
     [stages, draft.entityKind]
   )
 
-  const stageItems = useMemo(
-    () => Object.fromEntries(stageList.map((s) => [s.value, s.value])),
-    [stageList]
-  )
-
   const stage: Stage | undefined = stageList.find((s) => s.value === draft.stage)
 
-  const dirItems = { 수신: "받음", 발신: "보냄", __none: "메일 아님" }
-  const turnItems = Object.fromEntries(
-    NEXT_TURNS.map((t) => [t, NEXT_TURN_LABEL[t]])
-  ) as Record<NextTurn, string>
+  /**
+   * 건 목록 — 진행 중인 것이 위, 끝난 것(등록·거절확정·포기·중단)이 아래.
+   * 끝난 건은 볼 일이 드문데 개수는 계속 늘어나므로 섞여 있으면 목록이 못 쓰게 된다.
+   */
+  const { live, closed } = useMemo(() => {
+    const closedStages = new Set(
+      stages.filter((s) => s.kind === draft.entityKind && !s.isOpen).map((s) => s.value)
+    )
+    const rows =
+      draft.entityKind === "trademark"
+        ? trademarks.map((t) => ({ id: t.id, label: t.name, status: t.status }))
+        : patents.map((p) => ({ id: p.id, label: p.title, status: p.status }))
+
+    const byName = (a: { label: string }, b: { label: string }) =>
+      a.label.localeCompare(b.label, "ko")
+
+    return {
+      live: rows.filter((r) => !closedStages.has(r.status)).sort(byName),
+      closed: rows.filter((r) => closedStages.has(r.status)).sort(byName),
+    }
+  }, [trademarks, patents, stages, draft.entityKind])
+
+  const caseItems = useMemo(() => {
+    const map: Record<string, string> = { [NEW_CASE]: "+ 새 건 등록" }
+    for (const r of [...live, ...closed]) map[r.id] = r.label
+    return map
+  }, [live, closed])
 
   async function save() {
     if (!draft.entityId) {
       setError("어느 건인지 골라 주세요.")
+      return
+    }
+    if (creating && !newName.trim()) {
+      setError("새 건의 이름을 적어 주세요.")
       return
     }
     if (!draft.stage) {
@@ -150,9 +224,19 @@ export function ProgressForm({
     setSaving(true)
     setError(null)
     try {
-      await saveProgress(draft, isNew)
+      let entityId = draft.entityId
+      if (creating) {
+        entityId = await createCase(
+          draft.entityKind,
+          newName.trim(),
+          (draft.entityKind === "trademark" ? trademarks : patents).map((r) => r.id),
+          draft.stage
+        )
+      }
+      await saveProgress({ ...draft, entityId }, isNew)
       await refresh()
       setDraft(blank(today))
+      setNewName("")
       onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -163,7 +247,7 @@ export function ProgressForm({
 
   return (
     <div
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-3.5"
       onKeyDown={(e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
           e.preventDefault()
@@ -171,84 +255,118 @@ export function ProgressForm({
         }
       }}
     >
-      <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
-        <Field label="날짜" className="sm:w-36">
+      <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
+        <Field label="날짜">
           <Input
             type="date"
             value={draft.date}
             onChange={(e) => patch({ date: e.target.value })}
-            className="h-8 text-xs"
+            className="h-9 text-xs"
           />
         </Field>
 
-        <Field label="건">
-          <Select
-            items={caseItems}
-            value={draft.entityId ? `${draft.entityKind}:${draft.entityId}` : ""}
-            onValueChange={(v) => {
-              const [kind, id] = String(v).split(":")
+        <Field
+          label="부류"
+          hint={
+            RIGHT_KINDS.some((k) => !k.live)
+              ? "실용신안·디자인은 아직 보유 건이 없어 잠겨 있습니다."
+              : undefined
+          }
+        >
+          <Segmented
+            value={draft.entityKind}
+            options={RIGHT_KINDS.map((k) => ({
+              value: k.value,
+              label: k.label,
+              disabled: !k.live,
+            }))}
+            onChange={(v) =>
               patch({
-                entityKind: kind as ProgressEntry["entityKind"],
-                entityId: id,
-                // 종류가 바뀌면 단계 목록이 달라진다
+                entityKind: v as ProgressEntry["entityKind"],
+                entityId: "",
                 stage: "",
               })
-            }}
-          >
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue placeholder="상표 또는 특허 고르기" />
-            </SelectTrigger>
-            <SelectContent>
-              {cases.map((c) => (
-                <SelectItem key={c.key} value={c.key}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            }
+          />
         </Field>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="단계">
-          <Select
-            items={stageItems}
-            value={draft.stage}
-            onValueChange={(v) => patch({ stage: String(v) })}
-          >
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue placeholder="어디까지 갔나" />
-            </SelectTrigger>
-            <SelectContent>
-              {stageList.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+      <Field label="건">
+        <Select
+          items={caseItems}
+          value={draft.entityId}
+          onValueChange={(v) => patch({ entityId: String(v) })}
+        >
+          <SelectTrigger className="min-h-9 w-full">
+            <SelectValue placeholder="고르거나 새로 등록" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NEW_CASE}>+ 새 건 등록</SelectItem>
 
-        <Field label="주고받음">
-          <Select
-            items={dirItems}
-            value={draft.direction ?? "__none"}
-            onValueChange={(v) =>
-              patch({
-                direction:
-                  v === "__none" ? null : (String(v) as ProgressEntry["direction"]),
-              })
+            {live.length > 0 ? (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>진행 중 {live.length}</SelectLabel>
+                  {live.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            ) : null}
+
+            {closed.length > 0 ? (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>종료 {closed.length}</SelectLabel>
+                  {closed.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            ) : null}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {creating ? (
+        <Field
+          label="새 건 이름"
+          hint="번호·날짜는 비워 둡니다. 뒤따르는 기록이 채웁니다."
+        >
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder={draft.entityKind === "trademark" ? "상표명" : "발명의 명칭"}
+            className="h-9 text-xs"
+            autoFocus
+          />
+        </Field>
+      ) : null}
+
+      <StageSlider
+        stages={stageList}
+        value={draft.stage}
+        onChange={(v) => patch({ stage: v })}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="방향">
+          <Segmented
+            value={draft.direction ?? "none"}
+            options={[
+              ...PROGRESS_DIRECTIONS.map((d) => ({ value: d, label: d })),
+              { value: "none" as const, label: "메일 아님" },
+            ]}
+            onChange={(v) =>
+              patch({ direction: v === "none" ? null : (v as ProgressDirection) })
             }
-          >
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="수신">받음</SelectItem>
-              <SelectItem value="발신">보냄</SelectItem>
-              <SelectItem value="__none">메일 아님</SelectItem>
-            </SelectContent>
-          </Select>
+          />
         </Field>
 
         <Field label="상대">
@@ -256,7 +374,7 @@ export function ProgressForm({
             value={draft.counterpart}
             onChange={(e) => patch({ counterpart: e.target.value })}
             placeholder="대리인 / 대표"
-            className="h-8 text-xs"
+            className="h-9 text-xs"
           />
         </Field>
       </div>
@@ -267,13 +385,14 @@ export function ProgressForm({
           {stage.wantsAppNo ? (
             <Field
               label="출원번호"
-              hint="10-YYYY-NNNNNNN(특허) / 40-YYYY-NNNNNNN(상표). 사건번호도 됩니다."
+              hint="앞 두 자리가 부류입니다 — 10 특허 · 20 실용신안 · 30 디자인 · 40 상표"
             >
               <Input
                 value={draft.appNo ?? ""}
                 onChange={(e) => patch({ appNo: e.target.value || null })}
                 placeholder="40-0000-0000000"
-                className="h-8 font-mono text-xs"
+                className="h-9 font-mono text-xs"
+                inputMode="numeric"
               />
             </Field>
           ) : null}
@@ -284,7 +403,8 @@ export function ProgressForm({
                 value={draft.regNo ?? ""}
                 onChange={(e) => patch({ regNo: e.target.value || null })}
                 placeholder="40-0000000"
-                className="h-8 font-mono text-xs"
+                className="h-9 font-mono text-xs"
+                inputMode="numeric"
               />
             </Field>
           ) : null}
@@ -298,12 +418,12 @@ export function ProgressForm({
                 value={draft.probability ?? ""}
                 onChange={(e) =>
                   patch({
-                    probability:
-                      e.target.value === "" ? null : Number(e.target.value),
+                    probability: e.target.value === "" ? null : Number(e.target.value),
                   })
                 }
                 placeholder="45"
-                className="h-8 text-xs"
+                className="h-9 text-xs"
+                inputMode="numeric"
               />
             </Field>
           ) : null}
@@ -313,24 +433,30 @@ export function ProgressForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="다음 차례"
-          hint="「우리 차례」로 두면 내 차례 화면에 뜹니다. 별도 등록은 필요 없습니다."
+          help={
+            <>
+              <b>공이 누구에게 있는지</b>를 적는 칸입니다. 미결 항목을 따로 등록할
+              필요가 없습니다.
+              <br />
+              <br />
+              <b>우리 차례</b> — 회신·자료 송부·의견서 제출처럼 우리가 해야 할 일이
+              남았을 때. 「내 차례」 화면에 뜹니다.
+              <br />
+              <b>상대 차례</b> — 공을 넘겼고 답을 기다리는 중. 오래 걸리면 독촉
+              대상으로 잡힙니다.
+              <br />
+              <b>대기 없음</b> — 단순 기록. 아무 데도 안 뜹니다.
+              <br />
+              <br />
+              나중에 회신을 기록하면 이전 항목은 저절로 빠집니다.
+            </>
+          }
         >
-          <Select
-            items={turnItems}
+          <Segmented
             value={draft.nextTurn}
-            onValueChange={(v) => patch({ nextTurn: String(v) as NextTurn })}
-          >
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {NEXT_TURNS.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {NEXT_TURN_LABEL[t]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={NEXT_TURNS.map((t) => ({ value: t, label: NEXT_TURN_LABEL[t] }))}
+            onChange={(v) => patch({ nextTurn: v as NextTurn })}
+          />
         </Field>
 
         {draft.nextTurn !== "none" || stage?.wantsDue ? (
@@ -339,7 +465,7 @@ export function ProgressForm({
               type="date"
               value={draft.dueOn ?? ""}
               onChange={(e) => patch({ dueOn: e.target.value || null })}
-              className="h-8 text-xs"
+              className="h-9 text-xs"
             />
           </Field>
         ) : null}
@@ -368,28 +494,10 @@ export function ProgressForm({
             취소
           </Button>
         ) : null}
-        <span className="ml-auto text-[10px] text-muted-foreground">⌘+Enter</span>
+        <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">
+          ⌘+Enter
+        </span>
       </div>
     </div>
-  )
-}
-
-/** 단계 배지 — 목록에서 재사용 */
-export function StageDot({ tone, className }: { tone: string; className?: string }) {
-  const map: Record<string, string> = {
-    emerald: "bg-emerald-500",
-    indigo: "bg-indigo-500",
-    sky: "bg-sky-500",
-    amber: "bg-amber-500",
-    red: "bg-red-500",
-    violet: "bg-violet-500",
-    muted: "bg-muted-foreground/50",
-    neutral: "bg-muted-foreground/50",
-  }
-  return (
-    <span
-      className={cn("inline-block size-1.5 shrink-0 rounded-full", map[tone] ?? map.neutral, className)}
-      aria-hidden
-    />
   )
 }

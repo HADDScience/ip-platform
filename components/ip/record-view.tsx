@@ -110,8 +110,9 @@ export function RecordView() {
 
                 {e.direction ? (
                   <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {e.counterpart}
-                    {e.direction === "수신" ? " →" : " ←"}
+                    {e.direction === "수신"
+                      ? `${e.counterpart} → 우리`
+                      : `우리 → ${e.counterpart}`}
                   </span>
                 ) : null}
 

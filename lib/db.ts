@@ -364,6 +364,32 @@ export async function saveProgress(e: ProgressEntry, isNew: boolean) {
   check(error)
 }
 
+/**
+ * 대장에 없는 건을 기록하면서 새로 만든다.
+ * 이름만 받고 나머지는 비워 둔다 — 번호·날짜는 뒤따르는 기록이 채운다.
+ */
+export async function createCase(
+  kind: "trademark" | "patent",
+  name: string,
+  existing: string[],
+  stage: string
+): Promise<string> {
+  if (kind === "trademark") {
+    const id = nextId("TM", existing)
+    const { error } = await supabase
+      .from("trademarks")
+      .insert({ id, name, status: stage })
+    check(error)
+    return id
+  }
+  const id = nextId("PT", existing)
+  const { error } = await supabase
+    .from("patents")
+    .insert({ id, title: name, status: stage })
+  check(error)
+  return id
+}
+
 export async function removeProgress(id: string) {
   const { error } = await supabase.from("progress_entries").delete().eq("id", id)
   check(error)

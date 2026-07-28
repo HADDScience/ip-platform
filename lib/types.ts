@@ -106,6 +106,23 @@ export interface Stage {
 
 export type ProgressSource = "manual" | "mail" | "excel"
 
+/**
+ * 권리 부류. 출원번호 앞 두 자리가 곧 부류다.
+ * 지금 실제로 보유한 것은 상표·특허뿐이라 나머지는 자리만 잡아 둔다.
+ */
+export const RIGHT_KINDS = [
+  { value: "trademark", label: "상표", numPrefix: "40", idPrefix: "TM", live: true },
+  { value: "patent", label: "특허", numPrefix: "10", idPrefix: "PT", live: true },
+  { value: "utility", label: "실용신안", numPrefix: "20", idPrefix: "UM", live: false },
+  { value: "design", label: "디자인", numPrefix: "30", idPrefix: "DS", live: false },
+] as const
+
+export type RightKind = (typeof RIGHT_KINDS)[number]["value"]
+
+/** 진행 기록의 방향. 레거시 커뮤니케이션 로그의 「발신」과 달리 「송신」을 쓴다. */
+export const PROGRESS_DIRECTIONS = ["수신", "송신"] as const
+export type ProgressDirection = (typeof PROGRESS_DIRECTIONS)[number]
+
 export interface ProgressEntry {
   id: string
   date: string
@@ -113,7 +130,7 @@ export interface ProgressEntry {
   entityId: string
   stage: string
   /** 메일로 주고받은 기록이면 방향, 내부 결정이면 null */
-  direction: Direction | null
+  direction: ProgressDirection | null
   counterpart: string
   nextTurn: NextTurn
   dueOn: string | null
