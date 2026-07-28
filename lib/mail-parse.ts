@@ -62,9 +62,12 @@ export function parseDate(raw: string): string | null {
   return null
 }
 
-/** 파일명처럼 보이는 토큰 (확장자 기준) */
+/**
+ * 파일명처럼 보이는 토큰 (확장자 기준).
+ * "ADHEAL 등록가능성.pdf" 처럼 공백이 들어간 이름이 흔해서 내부 공백을 허용한다.
+ */
 const ATTACHMENT_RE =
-  /[^\s/\\:*?"<>|]+\.(pdf|hwpx?|docx?|xlsx?|pptx?|zip|jpe?g|png|gif|txt|csv)\b/gi
+  /[가-힣A-Za-z0-9_][가-힣A-Za-z0-9 _.()\-]*\.(pdf|hwpx?|docx?|xlsx?|pptx?|zip|jpe?g|png|gif|txt|csv)\b/gi
 
 export function parseMail(text: string): ParsedMail {
   const lines = text.replace(/\r\n/g, "\n").split("\n")

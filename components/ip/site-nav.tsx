@@ -21,6 +21,8 @@ export function SiteNav() {
   // 배지는 "지금 처리해야 할 것"만 센다. 완료 처리된 건 빠진다.
   const items: { href: string; label: string; badge?: number }[] = [
     { href: "/", label: "대시보드" },
+    // 주 입력 경로. 메일 한 통으로 기록·상태 변경을 함께 처리한다.
+    { href: "/intake", label: "메일로 입력" },
     { href: "/trademarks", label: "상표" },
     { href: "/patents", label: "특허" },
     {
