@@ -6,6 +6,10 @@ import type { Session } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  GoogleSignInButton,
+  KakaoSignInButton,
+} from "@/components/ip/social-buttons"
 import { supabase } from "@/lib/supabase"
 
 interface Member {
@@ -168,23 +172,18 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             로그인 후 접근 신청을 하면 관리자 승인 뒤 이용할 수 있습니다.
           </p>
 
-          <div className="mt-5 flex flex-col gap-2">
-            <Button
+          <div className="mt-5 flex flex-col gap-2.5">
+            <GoogleSignInButton
               onClick={() => signIn("google")}
               disabled={pending !== null}
-              className="w-full"
-            >
-              {pending === "google" ? "이동 중…" : "Google 계정으로 로그인"}
-            </Button>
+              pending={pending === "google"}
+            />
             {KAKAO_ENABLED ? (
-              <Button
-                variant="outline"
+              <KakaoSignInButton
                 onClick={() => signIn("kakao")}
                 disabled={pending !== null}
-                className="w-full"
-              >
-                {pending === "kakao" ? "이동 중…" : "카카오로 로그인"}
-              </Button>
+                pending={pending === "kakao"}
+              />
             ) : null}
           </div>
 
