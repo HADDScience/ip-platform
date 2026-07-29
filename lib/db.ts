@@ -746,3 +746,44 @@ export async function correctRecord(
   })
   check(error)
 }
+
+// ---------------------------------------------------------------------------
+// 개시 스냅샷
+// ---------------------------------------------------------------------------
+
+/** 우리가 이어받은 시점의 값. 사건이 아니라 출발선이다. */
+export interface OpeningState {
+  stage: string
+  refDate: string | null
+  name: string
+  holder: string | null
+  appNo: string | null
+  regNo: string | null
+  /** 이어받은 날. 사건이 일어난 날이 아니다. */
+  takenOverOn: string
+  sourceNote: string
+}
+
+/** `kind:id` 로 찾을 수 있게 묶어 돌려준다. */
+export async function loadOpeningState(): Promise<Map<string, OpeningState>> {
+  const { data, error } = await supabase
+    .from("opening_state")
+    .select(
+      "entity_kind, entity_id, stage, ref_date, name, holder, app_no, reg_no, taken_over_on, source_note"
+    )
+  check(error)
+  const map = new Map<string, OpeningState>()
+  for (const r of data ?? []) {
+    map.set(`${r.entity_kind}:${r.entity_id}`, {
+      stage: r.stage as string,
+      refDate: r.ref_date as string | null,
+      name: r.name as string,
+      holder: r.holder as string | null,
+      appNo: r.app_no as string | null,
+      regNo: r.reg_no as string | null,
+      takenOverOn: r.taken_over_on as string,
+      sourceNote: r.source_note as string,
+    })
+  }
+  return map
+}

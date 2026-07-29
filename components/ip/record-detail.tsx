@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { StatusBadge } from "@/components/ip/status-badge"
 import { formatDate } from "@/lib/date"
-import { correctRecord, type Correction } from "@/lib/db"
+import { correctRecord, type Correction, type OpeningState } from "@/lib/db"
 import { NEXT_TURN_LABEL, type ProgressEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -169,7 +169,14 @@ const SOURCE_LABEL: Record<string, string> = {
  * 요약만 보이면 "무슨 일이 있었는지"를 알 수 없어 결국 DB 를 열어보게 된다.
  * 값이 바뀐 칸은 무엇이 무엇으로 바뀌었는지까지 적는다.
  */
-export function ProgressHistory({ entries }: { entries: ProgressEntry[] }) {
+export function ProgressHistory({
+  entries,
+  opening,
+}: {
+  entries: ProgressEntry[]
+  /** 이 건을 이어받은 시점. 기록이 아니라 출발선이라 다른 모양으로 놓는다. */
+  opening?: OpeningState
+}) {
   const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
@@ -178,11 +185,8 @@ export function ProgressHistory({ entries }: { entries: ProgressEntry[] }) {
         진행 이력 {sorted.length}건
       </div>
 
-      {sorted.length === 0 ? (
-        <p className="text-muted-foreground">
-          기록이 없습니다. 이 건의 값은 엑셀에서 옮겨온 것이라 그것을 낳은
-          기록이 없습니다.
-        </p>
+      {sorted.length === 0 && !opening ? (
+        <p className="text-muted-foreground">기록이 없습니다.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-border/60">
           {sorted.map((h) => (
@@ -233,6 +237,26 @@ export function ProgressHistory({ entries }: { entries: ProgressEntry[] }) {
               ) : null}
             </li>
           ))}
+
+          {opening ? (
+            <li className="flex flex-col gap-1 border-t-2 border-dashed border-border py-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
+                  {formatDate(opening.takenOverOn)}
+                </span>
+                <span className="font-medium">여기서부터 이어받음</span>
+                <StatusBadge status={opening.stage} />
+              </div>
+              <p className="pl-20 text-[11px] text-muted-foreground">
+                {opening.sourceNote}. 이 줄은 사건이 아니라 <b>출발선</b>입니다
+                — 우리가 이 상태를 넘겨받은 날이지, 그날 무슨 일이 있었다는 뜻이
+                아닙니다.
+                {opening.refDate
+                  ? ` 넘겨받을 당시 마지막 진행일은 ${formatDate(opening.refDate)} 였습니다.`
+                  : " 넘겨받을 당시 마지막 진행일은 비어 있었습니다."}
+              </p>
+            </li>
+          ) : null}
         </ul>
       )}
     </div>

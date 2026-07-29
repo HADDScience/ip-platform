@@ -23,7 +23,13 @@ import { useToday } from "@/hooks/use-today"
 import { useQueryParam } from "@/hooks/use-search-string"
 import { detect, issuesById, type Issue } from "@/lib/detect"
 import { exportAll, exporterName } from "@/lib/excel"
-import { loadStageOrder, saveStageOrder, type StageOrder } from "@/lib/db"
+import {
+  loadOpeningState,
+  loadStageOrder,
+  saveStageOrder,
+  type OpeningState,
+  type StageOrder,
+} from "@/lib/db"
 import { formatDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import type { Patent, Trademark } from "@/lib/types"
@@ -94,6 +100,8 @@ export function RegisterView() {
   const [picked, setPicked] = useState<string[]>([])
   const [orderOpen, setOrderOpen] = useState(false)
   const [stageOrder, setStageOrder] = useState<StageOrder>({})
+  // 이어받은 시점의 값. 진행 이력의 출발선으로 보여준다.
+  const [opening, setOpening] = useState<Map<string, OpeningState>>(new Map())
   // 반짝임은 한 번만. 정렬·검색을 바꿀 때마다 다시 번쩍이면 성가시다.
   const [flashed, setFlashed] = useState(false)
 
@@ -113,6 +121,20 @@ export function RegisterView() {
       cancelled = true
     }
   }, [member.userId])
+
+  useEffect(() => {
+    let cancelled = false
+    loadOpeningState()
+      .then((m) => {
+        if (!cancelled) setOpening(m)
+      })
+      .catch(() => {
+        // 출발선을 못 읽어도 이력은 보여야 한다.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!focusId || flashed) return
@@ -517,7 +539,10 @@ export function RegisterView() {
                             />
                           ) : null}
 
-                          <ProgressHistory entries={historyOf.get(key) ?? []} />
+                          <ProgressHistory
+                            entries={historyOf.get(key) ?? []}
+                            opening={opening.get(key)}
+                          />
                         </div>
                       </td>
                     </tr>
