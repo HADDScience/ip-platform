@@ -195,37 +195,53 @@ function buildClients(token: string | null): Client[] {
       name: "ChatGPT",
       showUrl: true,
       steps: (
-        <ol className="ml-3.5 list-decimal space-y-1">
-          <li>
-            <b>설정 → 보안 및 로그인</b> 에서 <b>개발자 모드</b>를 켭니다. 회사
-            요금제(Business·Enterprise)는 관리자가 Workspace Settings →
-            Permissions &amp; Roles 에서 열어줘야 합니다.
-          </li>
-          <li>
-            <b>설정 → 플러그인</b> 으로 갑니다. 예전 「커넥터」가 이름을 바꿔
-            옮겨 온 자리라, 커넥터라는 메뉴는 더 이상 없습니다.
-          </li>
-          <li>
-            플러그인 탭에서 검색창 옆 <b>+</b> 를 눌러 「새 플러그인」을 엽니다.
-          </li>
-          <li>
-            <b>이름</b> 을 적고(예: HADD IP), <b>연결</b> 은 「서버 URL」 인
-            채로 아래 주소를 넣습니다. 아이콘·설명은 건너뛰어도 됩니다.
-          </li>
-          <li>
-            <b>인증은 「OAuth」 그대로</b> 둡니다. 토큰을 넣는 칸은 없습니다 —
-            ChatGPT 는 정적 토큰을 보내지 못해서, 이쪽만 OAuth 로 붙습니다.
-          </li>
-          <li>
-            경고 아래 <b>「내용을 이해했으며 계속 진행하길 원합니다」</b> 를
-            체크하고 <b>만들기</b>. 검토되지 않았다는 경고는 공개 디렉터리에
-            등재하지 않은 사내 서버라면 정상입니다.
-          </li>
-          <li>
-            연결하면 <b>승인 화면</b>이 뜹니다. 허브 로그인 상태 그대로
-            「승인」을 누르면 됩니다 — 토큰을 손으로 옮길 일이 없습니다.
-          </li>
-        </ol>
+        <div className="flex flex-col gap-2.5">
+          <ol className="ml-3.5 list-decimal space-y-1">
+            <li>
+              <b>설정 → 보안 및 로그인</b> 에서 <b>개발자 모드</b>를 켭니다.
+              회사 요금제(Business·Enterprise)는 관리자가 Workspace Settings →
+              Permissions &amp; Roles 에서 열어줘야 합니다.
+            </li>
+            <li>
+              <b>설정 → 플러그인</b> 에서 검색창 옆 <b>+</b> 를 눌러 「새
+              플러그인」을 엽니다.
+            </li>
+            <li>양식을 아래대로 채웁니다.</li>
+          </ol>
+
+          {/* 채울 칸이 여섯이라 줄글보다 표가 빨리 읽힌다. */}
+          <table className="w-full border border-border/60 text-[11px]">
+            <tbody className="divide-y divide-border/60">
+              {[
+                ["아이콘", "건너뜁니다"],
+                ["이름", "HADD IP"],
+                ["설명", "건너뜁니다"],
+                ["연결", "「서버 URL」 (기본값 그대로)"],
+                ["서버 URL", "아래 주소"],
+                ["인증", "「OAuth」 (기본값 그대로 — 토큰 넣는 칸 없음)"],
+              ].map(([field, value]) => (
+                <tr key={field}>
+                  <th className="w-24 bg-muted/50 px-2 py-1.5 text-left font-medium text-muted-foreground">
+                    {field}
+                  </th>
+                  <td className="px-2 py-1.5">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <ol className="ml-3.5 list-decimal space-y-1" start={4}>
+            <li>
+              <b>「내용을 이해했으며 계속 진행하길 원합니다」</b> 를 체크하고{" "}
+              <b>만들기</b>. 검토되지 않았다는 경고는 공개 디렉터리에 등재하지
+              않은 사내 서버라면 정상입니다.
+            </li>
+            <li>
+              <b>승인 화면</b>에서 「승인」. 허브 로그인 상태 그대로 누르면
+              됩니다 — 토큰을 손으로 옮길 일이 없습니다.
+            </li>
+          </ol>
+        </div>
       ),
       note: (
         <>
@@ -248,9 +264,8 @@ function buildClients(token: string | null): Client[] {
         "ChatGPT 에 HADD IP 플랫폼의 MCP 서버를 붙이는 방법:",
         "",
         "1. 설정 → 보안 및 로그인 → 개발자 모드 켜기. 회사 요금제는 관리자가 열어줘야 한다.",
-        "2. 설정 → 플러그인 (예전 「커넥터」가 이름을 바꿔 옮겨 온 자리)",
-        "3. 플러그인 탭에서 검색창 옆 + 를 눌러 「새 플러그인」 열기",
-        "4. 이름: HADD IP / 연결: 서버 URL",
+        "2. 설정 → 플러그인 에서 검색창 옆 + 를 눌러 「새 플러그인」 열기",
+        "3. 아이콘·설명은 건너뛴다. 이름: HADD IP / 연결: 서버 URL(기본값)",
         `5. 서버 URL: ${MCP_URL}`,
         "6. 인증은 OAuth 그대로 둔다 (ChatGPT 는 정적 토큰을 못 보내므로 OAuth 로 붙는다)",
         "7. 「내용을 이해했으며 계속 진행하길 원합니다」 체크 후 만들기",
