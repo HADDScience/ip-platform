@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/ip/page-header"
 import { StatusBadge } from "@/components/ip/status-badge"
 import { ExportViewButton } from "@/components/ip/export-button"
 import { StageOrderDialog } from "@/components/ip/stage-order-dialog"
+import { CorrectionForm, ProgressHistory } from "@/components/ip/record-detail"
 import { useData } from "@/components/ip/data-provider"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useToday } from "@/hooks/use-today"
@@ -77,8 +78,8 @@ function patentColumns(): Column[] {
 
 export function RegisterView() {
   const today = useToday()
-  const { member } = useAuth()
-  const { trademarks, patents, progress, stages } = useData()
+  const { member, canWrite } = useAuth()
+  const { trademarks, patents, progress, stages, refresh } = useData()
 
   // 대시보드에서 넘어올 때의 초기 탭만 쿼리로 받는다. 이후 전환은 화면 안에서만.
   const initialTab = useQueryParam("kind", "trademark")
@@ -496,7 +497,27 @@ export function RegisterView() {
                             <Detail label="비고" value={row.note || null} />
                           </dl>
 
-                          <History entries={historyOf.get(key) ?? []} />
+                          {canWrite ? (
+                            <CorrectionForm
+                              entityKind={kind}
+                              entityId={row.id}
+                              stage={row.status}
+                              today={today}
+                              current={{
+                                name: isPatent
+                                  ? (row as Patent).title
+                                  : (row as Trademark).name,
+                                holder: isPatent
+                                  ? (row as Patent).applicant
+                                  : (row as Trademark).holder,
+                                appNo: row.appNo,
+                                regNo: row.regNo,
+                              }}
+                              onSaved={refresh}
+                            />
+                          ) : null}
+
+                          <ProgressHistory entries={historyOf.get(key) ?? []} />
                         </div>
                       </td>
                     </tr>
@@ -568,43 +589,6 @@ function IssueChips({ issues }: { issues: Issue[] }) {
         </span>
       ) : null}
     </span>
-  )
-}
-
-function History({
-  entries,
-}: {
-  entries: {
-    id: string
-    date: string
-    stage: string
-    note: string
-    counterpart: string
-  }[]
-}) {
-  return (
-    <div>
-      <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-        진행 이력 {entries.length}건
-      </div>
-      {entries.length === 0 ? (
-        <p className="text-muted-foreground">기록이 없습니다.</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {entries.map((h) => (
-            <li key={h.id} className="flex flex-wrap gap-x-2">
-              <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
-                {formatDate(h.date)}
-              </span>
-              <StatusBadge status={h.stage} />
-              <span className="text-muted-foreground">
-                {h.note || h.counterpart}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   )
 }
 

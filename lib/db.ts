@@ -68,6 +68,8 @@ interface ProgressRow {
   app_no: string | null
   reg_no: string | null
   probability: number | null
+  name: string | null
+  holder: string | null
   note: string
   source: string
   raw: string | null
@@ -158,6 +160,8 @@ const toProgress = (r: ProgressRow): ProgressEntry => ({
   appNo: r.app_no,
   regNo: r.reg_no,
   probability: r.probability,
+  name: r.name ?? null,
+  holder: r.holder ?? null,
   note: r.note ?? "",
   source: r.source as ProgressEntry["source"],
   raw: r.raw,
@@ -354,6 +358,8 @@ export async function saveProgress(e: ProgressEntry, isNew: boolean) {
     app_no: e.appNo,
     reg_no: e.regNo,
     probability: e.probability,
+    name: e.name,
+    holder: e.holder,
     note: e.note,
     source: e.source,
     raw: e.raw,
@@ -682,5 +688,61 @@ export async function saveStageOrder(
       { user_id: userId, stage_order: order, updated_at: new Date().toISOString() },
       { onConflict: "user_id" }
     )
+  check(error)
+}
+
+// ---------------------------------------------------------------------------
+// 값 정정
+// ---------------------------------------------------------------------------
+
+/** IP 화면에서 고칠 수 있는 칸. 비운 값은 「안 바꿈」이지 「비움」이 아니다. */
+export interface Correction {
+  name?: string
+  holder?: string
+  appNo?: string
+  regNo?: string
+}
+
+/**
+ * 대장 값 정정.
+ *
+ * 대장을 직접 찌르지 않고 **진행 기록 한 줄로** 남긴다. 그러면 무엇이 언제 왜
+ * 바뀌었는지가 이력에 남고, 대장은 여전히 기록의 결과로만 바뀐다
+ * (ip.apply_progress_entry 가 최신 기록의 값을 반영한다).
+ *
+ * 단계는 지금 것을 그대로 다시 적는다 — 정정은 일이 진행된 것이 아니므로
+ * 단계를 움직이면 안 된다.
+ */
+export async function correctRecord(
+  entityKind: "trademark" | "patent",
+  entityId: string,
+  stage: string,
+  today: string,
+  patch: Correction,
+  reason: string
+): Promise<void> {
+  const changed = Object.entries(patch)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k]) => k)
+  if (changed.length === 0) return
+
+  const { error } = await supabase.from("progress_entries").insert({
+    occurred_on: today,
+    entity_kind: entityKind,
+    entity_id: entityId,
+    stage,
+    direction: null,
+    counterpart: "",
+    next_turn: "none",
+    due_on: null,
+    app_no: patch.appNo ?? null,
+    reg_no: patch.regNo ?? null,
+    probability: null,
+    name: patch.name ?? null,
+    holder: patch.holder ?? null,
+    note: reason.trim() || `값 정정 (${changed.join(", ")})`,
+    source: "edit",
+    raw: null,
+  })
   check(error)
 }

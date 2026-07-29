@@ -106,7 +106,8 @@ export interface Stage {
   selectable: boolean
 }
 
-export type ProgressSource = "manual" | "mail" | "excel"
+/** 이 기록이 어디서 왔는지. edit 는 IP 화면에서 값을 고쳐 생긴 기록이다. */
+export type ProgressSource = "manual" | "mail" | "excel" | "edit"
 
 /**
  * 권리 부류. 출원번호 앞 두 자리가 곧 부류다.
@@ -139,6 +140,10 @@ export interface ProgressEntry {
   appNo: string | null
   regNo: string | null
   probability: number | null
+  /** 값 정정으로 바꾼 이름(상표) · 명칭(특허). 안 바꿨으면 null */
+  name: string | null
+  /** 값 정정으로 바꾼 보유자 · 출원인. 안 바꿨으면 null */
+  holder: string | null
   note: string
   source: ProgressSource
   raw: string | null

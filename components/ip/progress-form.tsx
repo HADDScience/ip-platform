@@ -60,6 +60,9 @@ function blank(date: string): ProgressEntry {
     appNo: null,
     regNo: null,
     probability: null,
+    // 이름·보유자는 값 정정에서만 쓴다. 일반 기록은 손대지 않는다.
+    name: null,
+    holder: null,
     note: "",
     source: "manual",
     raw: null,
