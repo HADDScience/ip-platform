@@ -17,10 +17,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
   `auth-gate.tsx` 의 소셜 버튼은 localhost 폴백이므로 배포 흐름의 기준으로 삼지 않는다.
 - 상태값을 늘릴 때는 `ip.status_options` 에 행을 넣고 `status-badge.tsx` 에 톤을 추가한다.
   코드의 상수 배열을 고치는 것이 아니다.
-- **대장 = 개시 스냅샷(`ip.opening_state`) + 진행 기록.** 대장(`trademarks`·`patents`)을
+- **지식재산권 목록 = 개시 스냅샷(`ip.opening_state`) + 진행 기록.** 지식재산권 목록(`trademarks`·`patents`)을
   직접 UPDATE 하지 않는다. 값을 바꾸려면 진행 기록을 넣고 트리거가 반영하게 한다
   (값 정정은 `source='edit'` — 값만 바꾸고 단계·마지막 진행일은 건드리지 않는다).
-  `ip.opening_state` 는 인수 원본이라 절대 고치지 않는다. 규칙을 바꿨거나 대장이
+  `ip.opening_state` 는 인수 원본이라 절대 고치지 않는다. 규칙을 바꿨거나 목록이
   기록과 어긋났으면 `select ip.rebuild_ledger()` 로 전량 재계산한다.
 - 폼은 `components/ip/record-editor.tsx` 의 필드 서술로 만든다. 엔티티마다 폼을 새로 짜지 않는다.
 - 엑셀 내보내기는 NAS 「특허 및 상표권」 워크북의 양식을 따른다. `lib/xlsx/parts.ts` 의

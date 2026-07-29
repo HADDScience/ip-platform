@@ -1,7 +1,7 @@
 /**
  * 정합성 자동 감지.
  *
- * 사람이 등록하지 않는다. 대장을 읽을 때마다 매번 계산한다.
+ * 사람이 등록하지 않는다. 지식재산권 목록을 읽을 때마다 매번 계산한다.
  * 저장하는 것은 "이건 해결했음 / 해당 없음" 표시뿐이므로 등록 UI 가 필요 없다.
  *
  * 여럿이 입력하는 것을 전제로 한다 — 같은 건을 다르게 적거나, 두 번 만들거나,
@@ -23,7 +23,14 @@ export interface Issue {
   title: string
   detail: string
   /** 고치면 되는 필드 — 수정창이 어디를 열지 결정한다 */
-  field?: "appNo" | "regNo" | "filedOn" | "registeredOn" | "status" | "name" | "holder"
+  field?:
+    | "appNo"
+    | "regNo"
+    | "filedOn"
+    | "registeredOn"
+    | "status"
+    | "name"
+    | "holder"
   /** 「오래 멈춤」에만 있는 경과일. 목록에서 숫자로 보여준다. */
   days?: number
 }
@@ -85,7 +92,7 @@ function rows(trademarks: Trademark[], patents: Patent[]): Row[] {
 /**
  * 출원번호가 있어야 하는 단계.
  *
- * 등록·거절확정은 뺀다. 상표 대장은 「등록/출원번호」가 한 칸이라 등록된 건에는
+ * 등록·거절확정은 뺀다. 상표 목록은 「등록/출원번호」가 한 칸이라 등록된 건에는
  * 등록번호만 남아 있고 출원번호가 애초에 없다. 그것까지 잡으면 등록된 상표
  * 전부가 매번 경고로 뜬다.
  */
@@ -225,7 +232,7 @@ export function detect(
     /**
      * 등록번호 칸에 출원번호가 들어 있는 경우.
      *
-     * 대장의 「등록/출원번호」는 **한 칸**이다. 등록 전에는 출원번호를, 등록
+     * 지식재산권 목록의 「등록/출원번호」는 **한 칸**이다. 등록 전에는 출원번호를, 등록
      * 뒤에는 등록번호를 적는 자리라서, 아직 등록되지 않은 건에 출원번호가
      * 들어 있는 것은 잘못이 아니라 정상이다. 그것까지 잡으면 출원·심사 중인
      * 건이 전부 빨간 경고로 뜬다.
@@ -367,10 +374,12 @@ export function detect(
   }
 
   const rank: Record<IssueLevel, number> = { error: 0, warn: 1 }
-  return out.sort((a, b) => rank[a.level] - rank[b.level] || a.key.localeCompare(b.key))
+  return out.sort(
+    (a, b) => rank[a.level] - rank[b.level] || a.key.localeCompare(b.key)
+  )
 }
 
-/** 건별로 묶어 대장 목록에 배지로 띄운다 */
+/** 건별로 묶어 지식재산권 목록에 배지로 띄운다 */
 export function issuesById(issues: Issue[]): Map<string, Issue[]> {
   const map = new Map<string, Issue[]>()
   for (const i of issues) {

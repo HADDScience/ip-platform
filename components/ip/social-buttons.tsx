@@ -14,7 +14,12 @@ import { cn } from "@/lib/utils"
 
 function GoogleMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[18px]" aria-hidden focusable="false">
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[18px]"
+      aria-hidden
+      focusable="false"
+    >
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -37,7 +42,12 @@ function GoogleMark() {
 
 function KakaoMark() {
   return (
-    <svg viewBox="0 0 18 18" className="size-[18px]" aria-hidden focusable="false">
+    <svg
+      viewBox="0 0 18 18"
+      className="size-[18px]"
+      aria-hidden
+      focusable="false"
+    >
       <path
         fill="#000000"
         d="M9 1C4.58 1 1 3.82 1 7.29c0 2.25 1.5 4.22 3.75 5.33-.16.58-.6 2.16-.69 2.5-.11.42.16.41.33.3.13-.09 2.1-1.43 2.95-2.01.54.08 1.1.12 1.66.12 4.42 0 8-2.82 8-6.29S13.42 1 9 1z"

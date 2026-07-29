@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -55,7 +61,10 @@ export function MembersView() {
 
   const load = useCallback(async () => {
     const [req, mem] = await Promise.all([
-      supabase.from("access_requests").select("*").order("requested_at", { ascending: false }),
+      supabase
+        .from("access_requests")
+        .select("*")
+        .order("requested_at", { ascending: false }),
       supabase.from("members").select("*").order("created_at"),
     ])
     if (req.error) setError(req.error.message)
@@ -69,7 +78,10 @@ export function MembersView() {
     let cancelled = false
     void (async () => {
       const [req, mem] = await Promise.all([
-        supabase.from("access_requests").select("*").order("requested_at", { ascending: false }),
+        supabase
+          .from("access_requests")
+          .select("*")
+          .order("requested_at", { ascending: false }),
         supabase.from("members").select("*").order("created_at"),
       ])
       if (cancelled) return
@@ -124,7 +136,10 @@ export function MembersView() {
   async function revoke(userId: string) {
     setBusy(userId)
     setError(null)
-    const { error: err } = await supabase.from("members").delete().eq("user_id", userId)
+    const { error: err } = await supabase
+      .from("members")
+      .delete()
+      .eq("user_id", userId)
     if (err) setError(err.message)
     await load()
     setBusy(null)
@@ -133,7 +148,10 @@ export function MembersView() {
   if (!isOwner) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="멤버" description="관리자만 접근할 수 있는 화면입니다." />
+        <PageHeader
+          title="멤버"
+          description="관리자만 접근할 수 있는 화면입니다."
+        />
         <div className="py-14 text-center text-muted-foreground ring-1 ring-foreground/10">
           권한이 없습니다.
         </div>
@@ -153,12 +171,16 @@ export function MembersView() {
 
       {error ? (
         <Card className="ring-red-500/25">
-          <CardContent className="text-red-600 dark:text-red-400">{error}</CardContent>
+          <CardContent className="text-red-600 dark:text-red-400">
+            {error}
+          </CardContent>
         </Card>
       ) : null}
 
       {loading ? (
-        <div className="py-10 text-center text-muted-foreground">불러오는 중…</div>
+        <div className="py-10 text-center text-muted-foreground">
+          불러오는 중…
+        </div>
       ) : null}
 
       <Card className={pending.length > 0 ? "ring-amber-500/30" : undefined}>
@@ -170,10 +192,15 @@ export function MembersView() {
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border/60">
           {pending.length === 0 ? (
-            <p className="py-3 text-muted-foreground">대기 중인 신청이 없습니다.</p>
+            <p className="py-3 text-muted-foreground">
+              대기 중인 신청이 없습니다.
+            </p>
           ) : (
             pending.map((r) => (
-              <div key={r.user_id} className="flex flex-col gap-2 py-3 first:pt-0">
+              <div
+                key={r.user_id}
+                className="flex flex-col gap-2 py-3 first:pt-0"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{r.display_name}</span>
                   <Badge variant="outline">{r.provider ?? "unknown"}</Badge>
@@ -194,7 +221,9 @@ export function MembersView() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Select
-                    items={Object.fromEntries(ROLES.map((x) => [x, ROLE_LABEL[x]]))}
+                    items={Object.fromEntries(
+                      ROLES.map((x) => [x, ROLE_LABEL[x]])
+                    )}
                     value={roleChoice[r.user_id] ?? "editor"}
                     onValueChange={(v) =>
                       setRoleChoice((s) => ({ ...s, [r.user_id]: String(v) }))
@@ -236,20 +265,31 @@ export function MembersView() {
       <Card>
         <CardHeader>
           <CardTitle>멤버 {members.length}명</CardTitle>
-          <CardDescription>역할을 바꾸거나 접근을 해제할 수 있습니다.</CardDescription>
+          <CardDescription>
+            역할을 바꾸거나 접근을 해제할 수 있습니다.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border/60">
           {members.map((m) => (
-            <div key={m.user_id} className="flex flex-wrap items-center gap-2 py-2.5 first:pt-0">
-              <span className="font-medium">{m.display_name ?? "(이름 없음)"}</span>
-              <span className="text-[11px] text-muted-foreground">{m.email}</span>
+            <div
+              key={m.user_id}
+              className="flex flex-wrap items-center gap-2 py-2.5 first:pt-0"
+            >
+              <span className="font-medium">
+                {m.display_name ?? "(이름 없음)"}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {m.email}
+              </span>
               {m.user_id === member.userId ? (
                 <Badge variant="secondary">나</Badge>
               ) : null}
 
               <div className="ml-auto flex items-center gap-2">
                 <Select
-                  items={Object.fromEntries(ROLES.map((x) => [x, ROLE_LABEL[x]]))}
+                  items={Object.fromEntries(
+                    ROLES.map((x) => [x, ROLE_LABEL[x]])
+                  )}
                   value={m.role}
                   onValueChange={(v) => void changeRole(m.user_id, String(v))}
                   disabled={busy === m.user_id || m.user_id === member.userId}
@@ -285,9 +325,14 @@ export function MembersView() {
           <CardContent className="flex flex-col gap-1 text-muted-foreground">
             <div className="text-[11px] font-medium">처리된 신청</div>
             {decided.map((r) => (
-              <div key={r.user_id} className="flex flex-wrap items-center gap-2">
+              <div
+                key={r.user_id}
+                className="flex flex-wrap items-center gap-2"
+              >
                 <span>{r.display_name}</span>
-                <span className="text-[11px]">{r.provider_email ?? r.work_email ?? ""}</span>
+                <span className="text-[11px]">
+                  {r.provider_email ?? r.work_email ?? ""}
+                </span>
                 <Badge variant="outline">
                   {r.state === "approved" ? "승인" : "거절"}
                 </Badge>

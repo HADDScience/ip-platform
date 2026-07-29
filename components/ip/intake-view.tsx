@@ -8,7 +8,13 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +24,12 @@ import { PageHeader } from "@/components/ip/page-header"
 import { useData } from "@/components/ip/data-provider"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useToday } from "@/hooks/use-today"
-import { extract, toCommunication, type Extraction, type Proposal } from "@/lib/mail-extract"
+import {
+  extract,
+  toCommunication,
+  type Extraction,
+  type Proposal,
+} from "@/lib/mail-extract"
 import {
   nextId,
   saveAction,
@@ -119,7 +130,9 @@ export function IntakeView() {
           {
             ...base,
             ...patch,
-            note: extra ? [base.note, ...extra].filter(Boolean).join("\n") : base.note,
+            note: extra
+              ? [base.note, ...extra].filter(Boolean).join("\n")
+              : base.note,
           },
           false
         )
@@ -134,7 +147,9 @@ export function IntakeView() {
           {
             ...base,
             ...patch,
-            note: extra ? [base.note, ...extra].filter(Boolean).join("\n") : base.note,
+            note: extra
+              ? [base.note, ...extra].filter(Boolean).join("\n")
+              : base.note,
           },
           false
         )
@@ -145,10 +160,24 @@ export function IntakeView() {
         const [kind, id] = key.split(":")
         if (kind === "trademark") {
           const base = trademarks.find((t) => t.id === id)
-          if (base) await saveTrademark({ ...base, note: [base.note, ...texts].filter(Boolean).join("\n") }, false)
+          if (base)
+            await saveTrademark(
+              {
+                ...base,
+                note: [base.note, ...texts].filter(Boolean).join("\n"),
+              },
+              false
+            )
         } else {
           const base = patents.find((p) => p.id === id)
-          if (base) await savePatent({ ...base, note: [base.note, ...texts].filter(Boolean).join("\n") }, false)
+          if (base)
+            await savePatent(
+              {
+                ...base,
+                note: [base.note, ...texts].filter(Boolean).join("\n"),
+              },
+              false
+            )
         }
       }
 
@@ -162,7 +191,9 @@ export function IntakeView() {
         const item: ActionItem = {
           id,
           target: p.entity?.kind === "patent" ? "특허" : "상표",
-          subject: p.entity ? `${p.entity.id} ${p.entity.label}` : (draft.subject || "메일 후속"),
+          subject: p.entity
+            ? `${p.entity.id} ${p.entity.label}`
+            : draft.subject || "메일 후속",
           requestedAt: draft.date,
           requester: draft.from || null,
           todo: p.todo,
@@ -198,7 +229,11 @@ export function IntakeView() {
       {done ? (
         <Card className="ring-emerald-500/30">
           <CardContent className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={Tick02Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
             {done}
           </CardContent>
         </Card>
@@ -207,7 +242,11 @@ export function IntakeView() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-1.5">
-            <HugeiconsIcon icon={MailOpen01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={MailOpen01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
             메일 붙여넣기
           </CardTitle>
           <CardDescription>
@@ -251,25 +290,60 @@ export function IntakeView() {
               <CardDescription>필요하면 바로 고칠 수 있습니다.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Editable label="일자" value={draft?.date ?? ""} onChange={(v) => setDraft((d) => (d ? { ...d, date: v } : d))} type="date" />
-              <Editable label="구분" value={draft?.dir ?? ""} onChange={(v) => setDraft((d) => (d ? { ...d, dir: v as Communication["dir"] } : d))} />
-              <Editable label="발신" value={draft?.from ?? ""} onChange={(v) => setDraft((d) => (d ? { ...d, from: v } : d))} />
-              <Editable label="수신" value={draft?.to ?? ""} onChange={(v) => setDraft((d) => (d ? { ...d, to: v } : d))} />
+              <Editable
+                label="일자"
+                value={draft?.date ?? ""}
+                onChange={(v) => setDraft((d) => (d ? { ...d, date: v } : d))}
+                type="date"
+              />
+              <Editable
+                label="구분"
+                value={draft?.dir ?? ""}
+                onChange={(v) =>
+                  setDraft((d) =>
+                    d ? { ...d, dir: v as Communication["dir"] } : d
+                  )
+                }
+              />
+              <Editable
+                label="발신"
+                value={draft?.from ?? ""}
+                onChange={(v) => setDraft((d) => (d ? { ...d, from: v } : d))}
+              />
+              <Editable
+                label="수신"
+                value={draft?.to ?? ""}
+                onChange={(v) => setDraft((d) => (d ? { ...d, to: v } : d))}
+              />
               <div className="col-span-2 sm:col-span-4">
-                <Editable label="제목" value={draft?.subject ?? ""} onChange={(v) => setDraft((d) => (d ? { ...d, subject: v } : d))} />
+                <Editable
+                  label="제목"
+                  value={draft?.subject ?? ""}
+                  onChange={(v) =>
+                    setDraft((d) => (d ? { ...d, subject: v } : d))
+                  }
+                />
               </div>
               {draft && draft.attachments.length > 0 ? (
-                <div className="col-span-2 sm:col-span-4 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-muted-foreground">첨부</span>
+                <div className="col-span-2 flex flex-wrap items-center gap-1.5 sm:col-span-4">
+                  <span className="text-[11px] text-muted-foreground">
+                    첨부
+                  </span>
                   {draft.attachments.map((a) => (
-                    <Badge key={a} variant="secondary">{a}</Badge>
+                    <Badge key={a} variant="secondary">
+                      {a}
+                    </Badge>
                   ))}
                 </div>
               ) : null}
             </CardContent>
           </Card>
 
-          <Card className={result.entities.length === 0 ? "ring-amber-500/30" : undefined}>
+          <Card
+            className={
+              result.entities.length === 0 ? "ring-amber-500/30" : undefined
+            }
+          >
             <CardHeader>
               <CardTitle>2. 관련된 건 {result.entities.length}개</CardTitle>
               <CardDescription>
@@ -280,24 +354,38 @@ export function IntakeView() {
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               {result.entities.map((e) => (
-                <Badge key={`${e.kind}-${e.id}`} variant="outline" className="max-w-[320px] truncate">
+                <Badge
+                  key={`${e.kind}-${e.id}`}
+                  variant="outline"
+                  className="max-w-[320px] truncate"
+                >
                   {e.kind === "trademark" ? "상표" : "특허"} {e.id} · {e.label}
-                  <span className="ml-1 text-muted-foreground">({e.reason})</span>
+                  <span className="ml-1 text-muted-foreground">
+                    ({e.reason})
+                  </span>
                 </Badge>
               ))}
             </CardContent>
           </Card>
 
-          <Card className={result.proposals.length > 0 ? "ring-primary/25" : undefined}>
+          <Card
+            className={
+              result.proposals.length > 0 ? "ring-primary/25" : undefined
+            }
+          >
             <CardHeader>
-              <CardTitle>3. 반영할 변경사항 {selected.length}/{result.proposals.length}</CardTitle>
+              <CardTitle>
+                3. 반영할 변경사항 {selected.length}/{result.proposals.length}
+              </CardTitle>
               <CardDescription>
                 체크한 항목만 적용됩니다. 모든 변경은 수정 이력에 남습니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col divide-y divide-border/60">
               {result.proposals.length === 0 ? (
-                <p className="py-3 text-muted-foreground">제안할 변경사항이 없습니다.</p>
+                <p className="py-3 text-muted-foreground">
+                  제안할 변경사항이 없습니다.
+                </p>
               ) : (
                 result.proposals.map((p) => (
                   <ProposalRow
@@ -314,7 +402,11 @@ export function IntakeView() {
           {error ? (
             <Card className="ring-red-500/25">
               <CardContent className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4" />
+                <HugeiconsIcon
+                  icon={Alert02Icon}
+                  strokeWidth={2}
+                  className="size-4"
+                />
                 {error}
               </CardContent>
             </Card>
@@ -322,13 +414,17 @@ export function IntakeView() {
 
           <div className="flex items-center gap-2">
             <Button onClick={() => void apply()} disabled={!canWrite || saving}>
-              {saving ? "반영 중…" : `저장 (커뮤니케이션 1건 + 변경 ${selected.length}건)`}
+              {saving
+                ? "반영 중…"
+                : `저장 (커뮤니케이션 1건 + 변경 ${selected.length}건)`}
             </Button>
             <Button variant="ghost" onClick={reset} disabled={saving}>
               취소
             </Button>
             {!canWrite ? (
-              <span className="text-[11px] text-muted-foreground">읽기 전용 권한입니다.</span>
+              <span className="text-[11px] text-muted-foreground">
+                읽기 전용 권한입니다.
+              </span>
             ) : null}
           </div>
         </>
@@ -367,7 +463,9 @@ function ProposalRow({
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-muted-foreground">
             <span className="line-through">{proposal.before}</span>
             <span>→</span>
-            <span className={cn("font-medium text-foreground")}>{proposal.after}</span>
+            <span className={cn("font-medium text-foreground")}>
+              {proposal.after}
+            </span>
           </div>
         ) : proposal.type === "note" ? (
           <p className="mt-0.5 text-muted-foreground">{proposal.text}</p>
@@ -392,7 +490,9 @@ function Editable({
 }) {
   return (
     <div>
-      <div className="mb-1 text-[11px] font-medium text-muted-foreground">{label}</div>
+      <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+        {label}
+      </div>
       <Input
         type={type}
         value={value}

@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils"
 /**
  * 진행 기록 — 사용자가 채우는 유일한 양식.
  *
- * 대장의 번호·날짜·단계는 이 기록이 쌓인 결과이지 따로 입력하는 값이 아니다.
+ * 지식재산권 목록의 번호·날짜·단계는 이 기록이 쌓인 결과이지 따로 입력하는 값이 아니다.
  * 그래서 상표 편집·특허 편집·커뮤니케이션·액션 네 개의 입력창이 여기 하나로 합쳐진다.
  *
  * 화면을 작게 유지하는 장치는 "단계에 따라 필요한 칸만 뜬다"이다.
@@ -183,7 +183,9 @@ export function ProgressForm({
     [stages, draft.entityKind]
   )
 
-  const stage: Stage | undefined = stageList.find((s) => s.value === draft.stage)
+  const stage: Stage | undefined = stageList.find(
+    (s) => s.value === draft.stage
+  )
 
   /**
    * 건 목록 — 진행 중인 것이 위, 끝난 것(등록·거절확정·포기·중단)이 아래.
@@ -191,7 +193,9 @@ export function ProgressForm({
    */
   const { live, closed } = useMemo(() => {
     const closedStages = new Set(
-      stages.filter((s) => s.kind === draft.entityKind && !s.isOpen).map((s) => s.value)
+      stages
+        .filter((s) => s.kind === draft.entityKind && !s.isOpen)
+        .map((s) => s.value)
     )
     const rows =
       draft.entityKind === "trademark"
@@ -234,7 +238,9 @@ export function ProgressForm({
         entityId = await createCase(
           draft.entityKind,
           newName.trim(),
-          (draft.entityKind === "trademark" ? trademarks : patents).map((r) => r.id),
+          (draft.entityKind === "trademark" ? trademarks : patents).map(
+            (r) => r.id
+          ),
           draft.stage
         )
       }
@@ -347,7 +353,9 @@ export function ProgressForm({
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder={draft.entityKind === "trademark" ? "상표명" : "발명의 명칭"}
+            placeholder={
+              draft.entityKind === "trademark" ? "상표명" : "발명의 명칭"
+            }
             className="h-9 text-xs"
             autoFocus
           />
@@ -369,7 +377,9 @@ export function ProgressForm({
               { value: "none" as const, label: "메일 아님" },
             ]}
             onChange={(v) =>
-              patch({ direction: v === "none" ? null : (v as ProgressDirection) })
+              patch({
+                direction: v === "none" ? null : (v as ProgressDirection),
+              })
             }
           />
         </Field>
@@ -385,7 +395,8 @@ export function ProgressForm({
       </div>
 
       {/* 단계가 요구하는 칸만 나타난다 */}
-      {stage && (stage.wantsAppNo || stage.wantsRegNo || stage.wantsProbability) ? (
+      {stage &&
+      (stage.wantsAppNo || stage.wantsRegNo || stage.wantsProbability) ? (
         <div className="grid gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
           {stage.wantsAppNo ? (
             <Field
@@ -423,7 +434,8 @@ export function ProgressForm({
                 value={draft.probability ?? ""}
                 onChange={(e) =>
                   patch({
-                    probability: e.target.value === "" ? null : Number(e.target.value),
+                    probability:
+                      e.target.value === "" ? null : Number(e.target.value),
                   })
                 }
                 placeholder="45"
@@ -440,15 +452,15 @@ export function ProgressForm({
           label="다음 차례"
           help={
             <>
-              <b>공이 누구에게 있는지</b>를 적는 칸입니다. 미결 항목을 따로 등록할
-              필요가 없습니다.
+              <b>공이 누구에게 있는지</b>를 적는 칸입니다. 미결 항목을 따로
+              등록할 필요가 없습니다.
               <br />
               <br />
-              <b>회신 필요</b> — 회신·자료 송부·의견서 제출처럼 우리가 해야 할 일이
-              남았을 때. 「밀린 IP 업무」 화면에 뜹니다.
+              <b>회신 필요</b> — 회신·자료 송부·의견서 제출처럼 우리가 해야 할
+              일이 남았을 때. 「밀린 IP 업무」 화면에 뜹니다.
               <br />
-              <b>상대 회신 대기</b> — 공을 넘겼고 답을 기다리는 중. 오래 걸리면 독촉
-              대상으로 잡힙니다.
+              <b>상대 회신 대기</b> — 공을 넘겼고 답을 기다리는 중. 오래 걸리면
+              독촉 대상으로 잡힙니다.
               <br />
               <b>대기 없음</b> — 단순 기록. 아무 데도 안 뜹니다.
               <br />
@@ -459,13 +471,19 @@ export function ProgressForm({
         >
           <Segmented
             value={draft.nextTurn}
-            options={NEXT_TURNS.map((t) => ({ value: t, label: NEXT_TURN_LABEL[t] }))}
+            options={NEXT_TURNS.map((t) => ({
+              value: t,
+              label: NEXT_TURN_LABEL[t],
+            }))}
             onChange={(v) => patch({ nextTurn: v as NextTurn })}
           />
         </Field>
 
         {draft.nextTurn !== "none" || stage?.wantsDue ? (
-          <Field label="기한" hint={stage?.wantsDue ? "의견제출 마감일" : undefined}>
+          <Field
+            label="기한"
+            hint={stage?.wantsDue ? "의견제출 마감일" : undefined}
+          >
             <Input
               type="date"
               value={draft.dueOn ?? ""}

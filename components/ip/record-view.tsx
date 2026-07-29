@@ -19,7 +19,7 @@ import type { ProgressEntry } from "@/lib/types"
 /**
  * 기록하기 — 기본 진입 화면.
  *
- * 양식 하나와 최근 기록만 있다. 대장 편집·커뮤니케이션·액션 입력창은 전부 여기로 합쳐졌다.
+ * 양식 하나와 최근 기록만 있다. 지식재산권 목록 편집·커뮤니케이션·액션 입력창은 전부 여기로 합쳐졌다.
  * 메일 붙여넣기는 이 양식을 여러 장 미리 채워주는 실험적 도구라 버튼으로만 걸어 둔다.
  */
 export function RecordView() {
@@ -88,8 +88,11 @@ export function RecordView() {
         ) : (
           <ul className="flex flex-col divide-y divide-border/60 ring-1 ring-foreground/10">
             {progress.slice(0, 40).map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-2.5">
-                <span className="w-20 shrink-0 tabular-nums text-muted-foreground">
+              <li
+                key={e.id}
+                className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-2.5"
+              >
+                <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
                   {formatDate(e.date)}
                 </span>
                 <StatusBadge status={e.stage} />
@@ -131,7 +134,11 @@ export function RecordView() {
 
                 {canWrite ? (
                   <span className="ml-auto flex shrink-0 gap-1">
-                    <Button size="xs" variant="ghost" onClick={() => setEditing(e)}>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setEditing(e)}
+                    >
                       수정
                     </Button>
                     <Button

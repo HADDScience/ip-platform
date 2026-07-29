@@ -11,7 +11,8 @@ const EMERALD =
 const SKY = "bg-sky-500/12 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300"
 const INDIGO =
   "bg-indigo-500/12 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300"
-const AMBER = "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+const AMBER =
+  "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
 const RED = "bg-red-500/12 text-red-700 dark:bg-red-400/15 dark:text-red-300"
 const VIOLET =
   "bg-violet-500/12 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300"

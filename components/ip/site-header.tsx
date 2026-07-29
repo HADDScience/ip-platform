@@ -82,7 +82,9 @@ export function SiteHeader() {
             size="icon-sm"
             variant="ghost"
             aria-label="테마 전환"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
           >
             <HugeiconsIcon
               icon={resolvedTheme === "dark" ? Sun03Icon : Moon02Icon}

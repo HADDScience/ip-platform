@@ -50,6 +50,16 @@ async function sha256(value: string): Promise<string> {
     .join("")
 }
 
+/**
+ * 오늘(KST).
+ *
+ * 서버는 UTC 로 돈다. 그대로 쓰면 한국 시간 아침 9시 전에 남긴 정정이 어제로
+ * 적힌다 — 지식재산권 목록의 날짜는 전부 KST 이므로 여기서 맞춰 준다.
+ */
+function todayKst(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
 /** URL-safe 난수. 토큰·코드·client_id 에 두루 쓴다. */
 function randomToken(bytes = 32): string {
   const buf = new Uint8Array(bytes)
@@ -154,7 +164,7 @@ const TOOLS = [
   {
     name: "add_progress",
     description:
-      "진행 기록을 남긴다. 이 도구 하나로 대장(단계·번호·날짜)까지 함께 갱신된다 — 대장을 따로 고치지 않는다. 메일이 근거라면 받은 메일이든 보낸 메일이든 그 내용을 note 에 옮기고 direction 을 채운 뒤 source 를 'mail' 로 둔다. 결과로 기록_id 와 대장의 이전·이후 상태를 돌려주므로 정말 반영됐는지 그 자리에서 확인할 수 있다 — 기록_id 가 있으면 저장된 것이니 같은 내용을 다시 쓰지 않는다.",
+      "진행 기록을 남긴다. 이 도구 하나로 지식재산권 목록(단계·번호·날짜)까지 함께 갱신된다 — 지식재산권 목록을 따로 고치지 않는다. 메일이 근거라면 받은 메일이든 보낸 메일이든 그 내용을 note 에 옮기고 direction 을 채운 뒤 source 를 'mail' 로 둔다. 결과로 기록_id 와 지식재산권 목록의 이전·이후 상태를 돌려주므로 정말 반영됐는지 그 자리에서 확인할 수 있다 — 기록_id 가 있으면 저장된 것이니 같은 내용을 다시 쓰지 않는다.",
     inputSchema: {
       type: "object",
       properties: {
@@ -191,6 +201,55 @@ const TOOLS = [
         },
       },
       required: ["date", "entityKind", "entityId", "stage", "nextTurn"],
+    },
+  },
+  {
+    name: "correct_ip",
+    description:
+      "이름·보유자·출원번호·등록번호·단계를 고친다. 지식재산권 목록을 직접 찌르지 않고 「값 정정」 기록 한 줄로 남기므로 무엇이 언제 왜 바뀌었는지 이력에 남는다. 일이 진행된 것(출원했다·등록됐다)은 이 도구가 아니라 add_progress 로 남긴다 — 정정은 「원래부터 이랬다」는 뜻이라 마지막 진행일을 움직이지 않는다. 값을 비우려면 빈 문자열을 넘긴다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        entityId: { type: "string", description: "대상 ID. 예: TM-13, PT-07" },
+        entityKind: {
+          type: "string",
+          enum: ["trademark", "patent"],
+          description: "생략하면 ID 접두사(TM-/PT-)로 판단한다.",
+        },
+        name: { type: "string", description: "상표 이름 · 특허 명칭" },
+        holder: { type: "string", description: "보유자 · 출원인" },
+        appNo: { type: "string", description: "출원번호" },
+        regNo: { type: "string", description: "등록번호" },
+        stage: {
+          type: "string",
+          description:
+            "단계. 「엑셀 인수 당시 단계가 실제와 달랐다」처럼 지금까지 잘못 적혀 있던 경우에만 쓴다.",
+        },
+        reason: {
+          type: "string",
+          description: "왜 고치는지. 이력에 그대로 남으므로 근거를 적는다.",
+        },
+      },
+      required: ["entityId", "reason"],
+    },
+  },
+  {
+    name: "create_ip",
+    description:
+      "지식재산권 목록에 없는 건을 새로 만든다. 아이디어 단계의 상표처럼 아직 아무 일도 일어나지 않은 것을 자리부터 잡을 때 쓴다. 먼저 list_ip 로 같은 건이 이미 있는지 확인한다 — 이름만 다르게 적힌 같은 건을 둘로 만들면 나중에 합치기 어렵다. 만든 뒤 진행이 있었다면 add_progress 로 이어 적는다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        entityKind: { type: "string", enum: ["trademark", "patent"] },
+        name: { type: "string", description: "상표 이름 · 특허 명칭" },
+        stage: {
+          type: "string",
+          description:
+            "시작 단계. list_stages 가 알려준 값 중 하나여야 한다. 보통 '아이디어'.",
+        },
+        note: { type: "string", description: "비고. 없으면 비운다." },
+      },
+      required: ["entityKind", "name", "stage"],
     },
   },
 ] as const
@@ -268,7 +327,7 @@ async function runTool(
     if (rowError) return { error: rowError.message }
     if (!row) {
       return {
-        error: `${id} 는 대장에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
+        error: `${id} 는 지식재산권 목록에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
       }
     }
 
@@ -347,8 +406,8 @@ async function runTool(
 
     const kind = args.entityKind as string
     const table = kind === "trademark" ? "trademarks" : "patents"
-    // 쓰기 전 대장을 떠 둔다. 쓴 뒤와 견줘야 "정말 바뀌었나"를 부르는 쪽이 볼 수
-    // 있다. 진행 기록은 들어갔는데 대장은 안 움직이는 경우가 실제로 있다.
+    // 쓰기 전 지식재산권 목록을 떠 둔다. 쓴 뒤와 견줘야 "정말 바뀌었나"를 부르는 쪽이 볼 수
+    // 있다. 진행 기록은 들어갔는데 지식재산권 목록은 안 움직이는 경우가 실제로 있다.
     const LEDGER = "status, ref_date, app_no, reg_no"
     const { data: found, error: findError } = await db
       .from(table)
@@ -358,7 +417,7 @@ async function runTool(
     if (findError) return { error: findError.message }
     if (!found) {
       return {
-        error: `${args.entityId} 는 대장에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
+        error: `${args.entityId} 는 지식재산권 목록에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
       }
     }
 
@@ -403,7 +462,7 @@ async function runTool(
       .single()
     if (error) return { error: error.message }
 
-    // 쓴 뒤의 대장. 트리거가 움직였는지는 여기서만 알 수 있다.
+    // 쓴 뒤의 지식재산권 목록. 트리거가 움직였는지는 여기서만 알 수 있다.
     const { data: after, error: afterError } = await db
       .from(table)
       .select(LEDGER)
@@ -417,7 +476,7 @@ async function runTool(
       (k) => String(now[k] ?? "") !== String(before[k] ?? "")
     )
 
-    // 대장이 안 움직이는 정상적인 경우가 하나 있다: 더 최근 기록이 이미 있을 때.
+    // 지식재산권 목록이 안 움직이는 정상적인 경우가 하나 있다: 더 최근 기록이 이미 있을 때.
     // 지난 일을 뒤늦게 채우는 것이라 단계를 되돌리면 안 된다. 이걸 말해주지
     // 않으면 부르는 쪽은 "실패했다"고 보고 같은 걸 계속 다시 쓴다.
     const stageMoved = now.status === args.stage
@@ -430,8 +489,8 @@ async function runTool(
           기록됨: true,
           기록_id: written?.id ?? null,
           저장된_값: written,
-          대장: { 이전: before, 이후: now, 바뀐_칸: changed },
-          대장_반영: stageMoved
+          지식재산권_목록: { 이전: before, 이후: now, 바뀐_칸: changed },
+          목록_반영: stageMoved
             ? "단계가 이 기록대로 바뀌었습니다."
             : olderThanLedger
               ? `단계는 그대로입니다. 더 최근 기록(${before.ref_date})이 있어 지난 일로 되돌리지 않습니다 — 정상이며 다시 시도할 필요가 없습니다. 지금 상태를 바꾸려면 오늘 날짜로 기록하세요.`
@@ -439,6 +498,171 @@ async function runTool(
           확인_방법:
             "기록_id 가 있으면 저장된 것입니다. 같은 내용을 다시 쓰면 중복 기록이 생깁니다 — 실패로 보이더라도 먼저 get_ip 로 확인하세요.",
           기록자: caller.displayName ?? caller.email,
+        },
+        null,
+        2
+      ),
+    }
+  }
+
+  if (name === "correct_ip") {
+    if (caller.role === "viewer") {
+      return { error: "읽기 전용 권한입니다. 값을 고칠 수 없습니다." }
+    }
+
+    const id = String(args.entityId ?? "").trim()
+    const kind =
+      (args.entityKind as string | undefined) ??
+      (id.toUpperCase().startsWith("PT") ? "patent" : "trademark")
+    const table = kind === "trademark" ? "trademarks" : "patents"
+    const NAME_COL = kind === "trademark" ? "name" : "title"
+    const HOLDER_COL = kind === "trademark" ? "holder" : "applicant"
+    const LEDGER = `${NAME_COL}, ${HOLDER_COL}, status, ref_date, app_no, reg_no`
+
+    const { data: found, error: findError } = await db
+      .from(table)
+      .select(LEDGER)
+      .eq("id", id)
+      .maybeSingle()
+    if (findError) return { error: findError.message }
+    if (!found) {
+      return {
+        error: `${id} 는 지식재산권 목록에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
+      }
+    }
+    const before = found as Record<string, unknown>
+
+    // 안 넘긴 칸은 손대지 않고, 빈 문자열은 「비운다」는 뜻이다. 둘을 구분하지
+    // 않으면 이름 하나 고치려다 나머지를 통째로 지운다.
+    const patch = (key: string) =>
+      args[key] === undefined ? null : String(args[key])
+    const touched = ["name", "holder", "appNo", "regNo", "stage"].filter(
+      (k) => args[k] !== undefined
+    )
+    if (touched.length === 0) {
+      return {
+        error:
+          "고칠 값이 하나도 없습니다. name·holder·appNo·regNo·stage 중 하나 이상을 넘기세요.",
+      }
+    }
+
+    // 단계는 정정으로만 바꾼다. 정의에 없는 단계면 지식재산권 목록이 유령 값을 갖는다.
+    if (args.stage !== undefined) {
+      const { data: stage, error: stageError } = await db
+        .from("status_options")
+        .select("value")
+        .eq("kind", kind)
+        .eq("value", args.stage)
+        .maybeSingle()
+      if (stageError) return { error: stageError.message }
+      if (!stage) {
+        return {
+          error: `'${args.stage}' 는 쓸 수 없는 단계입니다. list_stages 를 먼저 부르세요.`,
+        }
+      }
+    }
+
+    const today = todayKst()
+    const reason = String(args.reason ?? "").trim()
+
+    const { data: written, error } = await db
+      .from("progress_entries")
+      .insert({
+        occurred_on: today,
+        entity_kind: kind,
+        entity_id: id,
+        // 단계를 안 고치면 지금 단계를 그대로 다시 적는다. 무해하다.
+        stage: args.stage ?? before.status,
+        direction: null,
+        counterpart: "",
+        next_turn: "none",
+        due_on: null,
+        app_no: patch("appNo"),
+        reg_no: patch("regNo"),
+        probability: null,
+        name: patch("name"),
+        holder: patch("holder"),
+        note: reason || `값 정정 (${touched.join(", ")})`,
+        // 정정은 일이 진행된 것이 아니다. 이 표시가 마지막 진행일을 지켜준다.
+        source: "edit",
+        raw: null,
+      })
+      .select("id, occurred_on, stage, source")
+      .single()
+    if (error) return { error: error.message }
+
+    const { data: after, error: afterError } = await db
+      .from(table)
+      .select(LEDGER)
+      .eq("id", id)
+      .maybeSingle()
+    if (afterError) return { error: afterError.message }
+
+    const now = (after ?? {}) as Record<string, unknown>
+    const changed = Object.keys(now).filter(
+      (k) => String(now[k] ?? "") !== String(before[k] ?? "")
+    )
+
+    return {
+      text: JSON.stringify(
+        {
+          고쳤음: changed.length > 0,
+          기록_id: written?.id ?? null,
+          지식재산권_목록: { 이전: before, 이후: now, 바뀐_칸: changed },
+          설명:
+            changed.length > 0
+              ? "지식재산권 목록이 바뀌었고 「값 정정」 기록 한 줄이 이력에 남았습니다. 마지막 진행일은 움직이지 않았습니다."
+              : "기록은 남았지만 지식재산권 목록은 그대로입니다 — 넘긴 값이 지금 값과 같거나, 더 최근 기록이 그 칸을 이미 채우고 있습니다. get_ip 로 확인하세요.",
+          기록자: caller.displayName ?? caller.email,
+        },
+        null,
+        2
+      ),
+    }
+  }
+
+  if (name === "create_ip") {
+    if (caller.role === "viewer") {
+      return { error: "읽기 전용 권한입니다. 건을 만들 수 없습니다." }
+    }
+
+    const kind = args.entityKind as string
+    const name_ = String(args.name ?? "").trim()
+
+    // 같은 건을 둘로 만들면 나중에 합치기 어렵다. 부르는 쪽이 확인하도록
+    // 시켜두었지만, 이름이 완전히 같은 것만은 여기서도 막는다.
+    const table = kind === "trademark" ? "trademarks" : "patents"
+    const column = kind === "trademark" ? "name" : "title"
+    const { data: dup, error: dupError } = await db
+      .from(table)
+      .select(`id, ${column}`)
+      .ilike(column, name_)
+    if (dupError) return { error: dupError.message }
+    if (dup && dup.length > 0) {
+      return {
+        error: `이미 같은 이름의 건이 있습니다: ${dup
+          .map((d: Record<string, unknown>) => d.id)
+          .join(", ")}. 새로 만들지 말고 그 건에 기록하세요.`,
+      }
+    }
+
+    const { data: newId, error } = await db.rpc("create_case", {
+      p_kind: kind,
+      p_name: name_,
+      p_stage: args.stage,
+      p_note: (args.note as string) ?? "",
+    })
+    if (error) return { error: error.message }
+
+    return {
+      text: JSON.stringify(
+        {
+          만들었음: true,
+          id: newId,
+          이름: name_,
+          단계: args.stage,
+          설명: "지식재산권 목록에 자리를 잡았고, 되짚을 수 있도록 출발선도 함께 적었습니다. 이 건에 진행이 있으면 add_progress 로 이어 적으세요.",
+          만든이: caller.displayName ?? caller.email,
         },
         null,
         2

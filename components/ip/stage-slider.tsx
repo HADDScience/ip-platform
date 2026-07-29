@@ -47,10 +47,13 @@ export function StageSlider({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[11px] font-medium text-muted-foreground">
+        <label
+          htmlFor={id}
+          className="text-[11px] font-medium text-muted-foreground"
+        >
           단계
         </label>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground tabular-nums">
           {value ? `${index + 1} / ${stages.length}` : ""}
         </span>
       </div>
@@ -64,7 +67,9 @@ export function StageSlider({
           </span>
         )}
         {chosen && !chosen.isOpen ? (
-          <span className="text-[10px] text-muted-foreground">여기서 끝납니다</span>
+          <span className="text-[10px] text-muted-foreground">
+            여기서 끝납니다
+          </span>
         ) : null}
       </div>
 

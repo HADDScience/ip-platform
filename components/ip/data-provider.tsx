@@ -45,7 +45,8 @@ const DataContext = createContext<DataValue | null>(null)
 
 export function useData(): DataValue {
   const value = useContext(DataContext)
-  if (!value) throw new Error("useData 는 DataProvider 안에서만 쓸 수 있습니다.")
+  if (!value)
+    throw new Error("useData 는 DataProvider 안에서만 쓸 수 있습니다.")
   return value
 }
 

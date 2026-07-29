@@ -5,7 +5,13 @@ import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { PageHeader } from "@/components/ip/page-header"
 import { StatusBadge, StaleDays } from "@/components/ip/status-badge"
 import { useData } from "@/components/ip/data-provider"
@@ -37,8 +43,8 @@ export function TodoView() {
   }, [trademarks, patents])
 
   // 건마다 가장 최근 기록만 본다. 옛 기록의 「회신 필요」는 이미 지나간 상태다.
-    // 값 정정(source='edit')은 누구 차례인지에 대해 아무 말도 하지 않는다.
-    // 그것까지 최신으로 치면 정정 한 번에 밀린 일이 목록에서 사라진다.
+  // 값 정정(source='edit')은 누구 차례인지에 대해 아무 말도 하지 않는다.
+  // 그것까지 최신으로 치면 정정 한 번에 밀린 일이 목록에서 사라진다.
   const latest = useMemo(() => {
     const map = new Map<string, ProgressEntry>()
     for (const e of progress) {
@@ -52,7 +58,11 @@ export function TodoView() {
 
   const ours = latest
     .filter((e) => e.nextTurn === "us")
-    .sort((a, b) => (a.dueOn ?? "9999") .localeCompare(b.dueOn ?? "9999") || a.date.localeCompare(b.date))
+    .sort(
+      (a, b) =>
+        (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999") ||
+        a.date.localeCompare(b.date)
+    )
   const theirs = latest
     .filter((e) => e.nextTurn === "firm")
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -82,10 +92,22 @@ export function TodoView() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="회신 필요" value={ours.length} tone={ours.length > 0 ? "danger" : undefined} />
+        <Stat
+          label="회신 필요"
+          value={ours.length}
+          tone={ours.length > 0 ? "danger" : undefined}
+        />
         <Stat label="상대 회신 대기" value={theirs.length} />
-        <Stat label="오래 멈춤" value={stale.length} tone={stale.length > 0 ? "warn" : undefined} />
-        <Stat label="확인 필요" value={mismatch.length} tone={mismatch.length > 0 ? "warn" : undefined} />
+        <Stat
+          label="오래 멈춤"
+          value={stale.length}
+          tone={stale.length > 0 ? "warn" : undefined}
+        />
+        <Stat
+          label="확인 필요"
+          value={mismatch.length}
+          tone={mismatch.length > 0 ? "warn" : undefined}
+        />
       </div>
 
       <Card className={ours.length > 0 ? "ring-red-500/25" : undefined}>
@@ -102,7 +124,10 @@ export function TodoView() {
             ours.map((e) => {
               const over = e.dueOn && e.dueOn < today
               return (
-                <div key={e.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 py-2.5 first:pt-0">
+                <div
+                  key={e.id}
+                  className="flex flex-wrap items-center gap-x-2.5 gap-y-1 py-2.5 first:pt-0"
+                >
                   <StatusBadge status={e.stage} />
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {label.get(`${e.entityKind}:${e.entityId}`) ?? e.entityId}
@@ -123,7 +148,9 @@ export function TodoView() {
                     <StaleDays days={daysBetween(e.date, today)} />
                   </span>
                   {e.note ? (
-                    <p className="w-full text-[11px] text-muted-foreground">{e.note}</p>
+                    <p className="w-full text-[11px] text-muted-foreground">
+                      {e.note}
+                    </p>
                   ) : null}
                   {canWrite ? (
                     <Button
@@ -146,13 +173,14 @@ export function TodoView() {
         <Card>
           <CardHeader>
             <CardTitle>상대 회신 대기 {theirs.length}건</CardTitle>
-            <CardDescription>
-              오래 걸리면 독촉할 때입니다.
-            </CardDescription>
+            <CardDescription>오래 걸리면 독촉할 때입니다.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col divide-y divide-border/60">
             {theirs.map((e) => (
-              <div key={e.id} className="flex flex-wrap items-center gap-x-2.5 py-2 first:pt-0">
+              <div
+                key={e.id}
+                className="flex flex-wrap items-center gap-x-2.5 py-2 first:pt-0"
+              >
                 <StatusBadge status={e.stage} />
                 <span className="min-w-0 flex-1 truncate">
                   {label.get(`${e.entityKind}:${e.entityId}`) ?? e.entityId}
@@ -181,7 +209,10 @@ export function TodoView() {
             <p className="py-4 text-muted-foreground">안 맞는 값이 없습니다.</p>
           ) : (
             mismatch.map((i) => (
-              <div key={i.key} className="flex flex-wrap items-baseline gap-x-2 py-2 first:pt-0">
+              <div
+                key={i.key}
+                className="flex flex-wrap items-baseline gap-x-2 py-2 first:pt-0"
+              >
                 <span
                   className={cn(
                     "size-1.5 shrink-0 rounded-full",
@@ -190,7 +221,9 @@ export function TodoView() {
                   aria-hidden
                 />
                 <span className="font-medium">{i.title}</span>
-                <span className="min-w-0 flex-1 text-muted-foreground">{i.detail}</span>
+                <span className="min-w-0 flex-1 text-muted-foreground">
+                  {i.detail}
+                </span>
                 <Link
                   // 어느 줄인지 함께 넘긴다. IP 화면이 그 줄을 잠깐 반짝여 준다.
                   href={`/register/?kind=${i.kind}&focus=${i.ids[0]}`}
@@ -212,7 +245,10 @@ export function TodoView() {
           </CardHeader>
           <CardContent className="flex flex-col divide-y divide-border/60">
             {stale.map((i) => (
-              <div key={i.key} className="flex flex-wrap items-baseline gap-x-2 py-2 first:pt-0">
+              <div
+                key={i.key}
+                className="flex flex-wrap items-baseline gap-x-2 py-2 first:pt-0"
+              >
                 <span className="font-medium">{i.title}</span>
                 <span className="text-muted-foreground">{i.detail}</span>
               </div>

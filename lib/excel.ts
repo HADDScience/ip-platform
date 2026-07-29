@@ -86,7 +86,7 @@ function group(
   return table[status] ?? fallback
 }
 
-/** 구분 순서 → 그 안에서는 기존 대장 순서(id) 를 유지한다. */
+/** 구분 순서 → 그 안에서는 기존 목록 순서(id) 를 유지한다. */
 function byGroup<T>(rows: T[], order: string[], of: (row: T) => string): T[] {
   const rank = (row: T) => {
     const i = order.indexOf(of(row))
@@ -127,7 +127,7 @@ function bracketed(date: string | null): string | null {
  * 예) `ADDGEL(제01류 과학 및 연구용 세포배양시약 등 10건)`
  *
  * 기준 워크북은 류마다 지정상품을 따로 적은 행도 있지만(`제 03류 화장품 등 /
- * 제 05류 건강기능식품 등`), 대장은 류 목록과 지정상품을 각각 하나씩만 들고
+ * 제 05류 건강기능식품 등`), 지식재산권 목록은 류 목록과 지정상품을 각각 하나씩만 들고
  * 있어 그 짝을 복원할 수 없다. 가진 만큼만 붙인다.
  */
 function trademarkLabel(t: Trademark): string {

@@ -176,7 +176,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <Centered>
         <p className="text-muted-foreground">
-          {phase.kind === "leaving" ? "허브 로그인 화면으로 이동 중…" : "확인 중…"}
+          {phase.kind === "leaving"
+            ? "허브 로그인 화면으로 이동 중…"
+            : "확인 중…"}
         </p>
       </Centered>
     )

@@ -20,9 +20,9 @@ import { NEXT_TURN_LABEL, type ProgressEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /**
- * 값 정정 — 대장을 직접 찌르지 않는다.
+ * 값 정정 — 지식재산권 목록을 직접 찌르지 않는다.
  *
- * 고치면 진행 기록 한 줄이 생기고, 대장은 그 기록의 결과로 바뀐다. 그래서
+ * 고치면 진행 기록 한 줄이 생기고, 지식재산권 목록은 그 기록의 결과로 바뀐다. 그래서
  * 무엇이 언제 왜 바뀌었는지가 이력에 남는다. 단계는 건드리지 않는다 — 정정은
  * 일이 진행된 것이 아니기 때문이다.
  */
@@ -77,7 +77,7 @@ export function CorrectionForm({
     key: "name" | "holder" | "appNo" | "regNo"
     label: string
     now: string | null
-    /** 이름·명칭은 비울 수 없다. 대장에서 not null 이다. */
+    /** 이름·명칭은 비울 수 없다. 지식재산권 목록에서 not null 이다. */
     clearable: boolean
   }[] = [
     { key: "name", label: nameLabel, now: current.name, clearable: false },
