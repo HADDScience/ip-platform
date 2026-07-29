@@ -154,7 +154,7 @@ const TOOLS = [
   {
     name: "add_progress",
     description:
-      "진행 기록을 남긴다. 이 도구 하나로 대장(단계·번호·날짜)까지 함께 갱신된다 — 대장을 따로 고치지 않는다. 메일을 받았다면 그 내용을 note 에 옮기고 direction 을 '수신'으로 둔다.",
+      "진행 기록을 남긴다. 이 도구 하나로 대장(단계·번호·날짜)까지 함께 갱신된다 — 대장을 따로 고치지 않는다. 메일을 받았다면 그 내용을 note 에 옮기고 direction 을 '수신', source 를 'mail' 로 둔다.",
     inputSchema: {
       type: "object",
       properties: {
@@ -182,6 +182,12 @@ const TOOLS = [
         regNo: { type: "string", description: "등록번호" },
         probability: { type: "number", description: "등록가능성 %" },
         note: { type: "string", description: "메모. 메일 본문 요약을 넣는다." },
+        source: {
+          type: "string",
+          enum: ["manual", "mail"],
+          description:
+            "이 기록이 어디서 왔는지. 메일 내용을 옮긴 것이면 'mail', 구두·회의·내부 결정처럼 메일이 아닌 것이면 'manual'. 생략하면 'manual'.",
+        },
       },
       required: ["date", "entityKind", "entityId", "stage", "nextTurn"],
     },
@@ -363,8 +369,9 @@ async function runTool(
       reg_no: args.regNo ?? null,
       probability: args.probability ?? null,
       note: (args.note as string) ?? "",
-      // 사람이 화면에서 넣은 것과 구분한다. 나중에 되짚을 때 출처가 보여야 한다.
-      source: "mail",
+      // 나중에 되짚을 때 출처가 보여야 한다. 메일을 옮긴 것과 구두로 들은 것은
+      // 근거의 무게가 다르므로 부르는 쪽이 밝히게 한다.
+      source: args.source === "mail" ? "mail" : "manual",
       raw: null,
     })
     if (error) return { error: error.message }
