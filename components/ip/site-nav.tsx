@@ -36,8 +36,9 @@ export function SiteNav() {
 
   const items: { href: string; label: string; badge?: number }[] = [
     { href: "/", label: "기록하기" },
-    { href: "/register", label: "대장" },
-    { href: "/todo", label: "내 차례", badge },
+    // IP 옆 숫자는 보유 건수, 밀린 업무 옆 숫자는 손댈 것의 수다. 뜻이 다르다.
+    { href: "/register", label: "IP", badge: trademarks.length + patents.length },
+    { href: "/todo", label: "밀린 IP 업무", badge },
   ]
 
   // 멤버 관리는 관리자에게만 보인다.

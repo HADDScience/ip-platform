@@ -1,14 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Mail01Icon } from "@hugeicons/core-free-icons"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { PageHeader } from "@/components/ip/page-header"
+import { McpInstall } from "@/components/ip/mcp-install"
 import { ProgressForm } from "@/components/ip/progress-form"
 import { StatusBadge } from "@/components/ip/status-badge"
 import { useData } from "@/components/ip/data-provider"
@@ -51,7 +49,7 @@ export function RecordView() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="기록하기"
-        description="언제 · 어느 건이 · 어디까지 갔고 · 이제 누구 차례인지. 대장은 이 기록에서 자동으로 갱신됩니다."
+        description="언제 · 어느 건이 · 어디까지 갔고 · 이제 누구 차례인지. IP 현황은 이 기록에서 자동으로 갱신됩니다."
       />
 
       <Card>
@@ -60,16 +58,7 @@ export function RecordView() {
             <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               {editing ? "기록 수정" : "새 기록"}
             </span>
-            <Link
-              href="/intake"
-              className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
-            >
-              <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-3.5" />
-              메일 붙여넣기
-              <Badge className="bg-amber-500/15 text-[9px] text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-                실험적
-              </Badge>
-            </Link>
+            <McpInstall />
           </div>
 
           {canWrite ? (

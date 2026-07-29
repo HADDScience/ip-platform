@@ -84,8 +84,10 @@ export const NEXT_TURNS = ["us", "firm", "none"] as const
 export type NextTurn = (typeof NEXT_TURNS)[number]
 
 export const NEXT_TURN_LABEL: Record<NextTurn, string> = {
-  us: "우리 차례",
-  firm: "상대 차례",
+  // 「밀린 IP 업무」 화면의 집계 이름과 같은 말을 쓴다. 입력할 때 고른 말이
+  // 그대로 목록 제목으로 나와야 둘이 이어져 보인다.
+  us: "회신 필요",
+  firm: "상대 회신 대기",
   none: "대기 없음",
 }
 

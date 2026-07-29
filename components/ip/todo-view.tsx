@@ -74,12 +74,12 @@ export function TodoView() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="내 차례"
+        title="밀린 IP 업무"
         description="회신·제출이 걸린 건, 오래 멈춘 건, 값이 안 맞는 건입니다."
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="우리 차례" value={ours.length} tone={ours.length > 0 ? "danger" : undefined} />
+        <Stat label="회신 필요" value={ours.length} tone={ours.length > 0 ? "danger" : undefined} />
         <Stat label="상대 회신 대기" value={theirs.length} />
         <Stat label="오래 멈춤" value={stale.length} tone={stale.length > 0 ? "warn" : undefined} />
         <Stat label="확인 필요" value={mismatch.length} tone={mismatch.length > 0 ? "warn" : undefined} />
@@ -87,7 +87,7 @@ export function TodoView() {
 
       <Card className={ours.length > 0 ? "ring-red-500/25" : undefined}>
         <CardHeader>
-          <CardTitle>우리 차례 {ours.length}건</CardTitle>
+          <CardTitle>회신 필요 {ours.length}건</CardTitle>
           <CardDescription>
             회신을 기록하면 목록에서 저절로 빠집니다.
           </CardDescription>
@@ -170,7 +170,7 @@ export function TodoView() {
         <CardHeader>
           <CardTitle>확인 필요 {mismatch.length}건</CardTitle>
           <CardDescription>
-            자동으로 찾은 것입니다. 직접 등록하지 않습니다.
+            입력된 정보 중에 정합성이 깨지는 부분입니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border/60">
@@ -192,7 +192,7 @@ export function TodoView() {
                   href={`/register/?kind=${i.kind}`}
                   className="shrink-0 text-primary hover:underline"
                 >
-                  대장에서 보기
+                  IP에서 보기
                 </Link>
               </div>
             ))
