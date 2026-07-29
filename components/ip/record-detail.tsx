@@ -24,6 +24,7 @@ export function CorrectionForm({
   stage,
   today,
   current,
+  stageOptions,
   onSaved,
 }: {
   entityKind: "trademark" | "patent"
@@ -36,6 +37,8 @@ export function CorrectionForm({
     appNo: string | null
     regNo: string | null
   }
+  /** 고를 수 있는 단계. 파이프라인 순서대로 들어온다. */
+  stageOptions: string[]
   onSaved: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -62,13 +65,18 @@ export function CorrectionForm({
     )
   }
 
-  const fields: { key: keyof Correction; label: string; now: string | null }[] =
-    [
-      { key: "name", label: nameLabel, now: current.name },
-      { key: "holder", label: holderLabel, now: current.holder },
-      { key: "appNo", label: "출원번호", now: current.appNo },
-      { key: "regNo", label: "등록번호", now: current.regNo },
-    ]
+  const fields: {
+    key: "name" | "holder" | "appNo" | "regNo"
+    label: string
+    now: string | null
+    /** 이름·명칭은 비울 수 없다. 대장에서 not null 이다. */
+    clearable: boolean
+  }[] = [
+    { key: "name", label: nameLabel, now: current.name, clearable: false },
+    { key: "holder", label: holderLabel, now: current.holder, clearable: true },
+    { key: "appNo", label: "출원번호", now: current.appNo, clearable: true },
+    { key: "regNo", label: "등록번호", now: current.regNo, clearable: true },
+  ]
 
   return (
     <div
@@ -76,26 +84,79 @@ export function CorrectionForm({
       className="flex flex-col gap-2 border border-border/60 p-2.5"
     >
       <p className="text-[11px] text-muted-foreground">
-        고친 내용은 <b>진행 기록 한 줄</b>로 남습니다. 비워 두면 바뀌지
-        않습니다.
+        고친 내용은 <b>진행 기록 한 줄</b>로 남습니다. 손대지 않은 칸은 그대로
+        둡니다. 단계를 바꾸는 것은 &ldquo;원래부터 이 단계였다&rdquo;는 뜻이라
+        마지막 진행일을 움직이지 않습니다 — 지금 진행된 일이라면 「기록하기」에
+        남기세요.
       </p>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        {fields.map((f) => (
-          <div key={f.key}>
-            <label className="mb-0.5 block text-[10.5px] text-muted-foreground">
-              {f.label}
-            </label>
-            <Input
-              value={draft[f.key] ?? ""}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, [f.key]: e.target.value }))
-              }
-              placeholder={f.now ?? "(비어 있음)"}
-              className="h-7 text-[11px]"
-            />
-          </div>
-        ))}
+        {fields.map((f) => {
+          const cleared = draft[f.key] === ""
+          return (
+            <div key={f.key}>
+              <div className="mb-0.5 flex items-center gap-1.5">
+                <label className="text-[10.5px] text-muted-foreground">
+                  {f.label}
+                </label>
+                {f.clearable && f.now ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((d) => ({
+                        ...d,
+                        [f.key]: cleared ? undefined : "",
+                      }))
+                    }
+                    className={cn(
+                      "px-1 text-[10px] transition-colors",
+                      cleared
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {cleared ? "비움 취소" : "비우기"}
+                  </button>
+                ) : null}
+              </div>
+              <Input
+                value={cleared ? "" : (draft[f.key] ?? "")}
+                disabled={cleared}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, [f.key]: e.target.value }))
+                }
+                placeholder={cleared ? "(비웁니다)" : (f.now ?? "(비어 있음)")}
+                className="h-7 text-[11px]"
+              />
+            </div>
+          )
+        })}
+
+        <div>
+          <label className="mb-0.5 block text-[10.5px] text-muted-foreground">
+            단계
+          </label>
+          {/*
+            "지금 등록됐다"는 진행이라 「기록하기」에 남겨야 한다. 여기서 바꾸는
+            것은 "원래부터 이 단계였다"는 정정이라 마지막 진행일을 움직이지 않는다.
+          */}
+          <select
+            value={draft.stage ?? stage}
+            onChange={(e) =>
+              setDraft((d) => ({
+                ...d,
+                stage: e.target.value === stage ? undefined : e.target.value,
+              }))
+            }
+            className="h-7 w-full bg-background px-1.5 text-[11px] ring-1 ring-foreground/15"
+          >
+            {stageOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div>

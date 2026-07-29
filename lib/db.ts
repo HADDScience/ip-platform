@@ -695,12 +695,20 @@ export async function saveStageOrder(
 // 값 정정
 // ---------------------------------------------------------------------------
 
-/** IP 화면에서 고칠 수 있는 칸. 비운 값은 「안 바꿈」이지 「비움」이 아니다. */
+/**
+ * IP 화면에서 고칠 수 있는 칸.
+ *
+ * `undefined` = 안 바꿈 · `""` = 비움 · 값 = 그 값.
+ * DB 쪽도 같은 약속을 쓴다(null=안 바꿈, ''=비움) — 기록의 칸이 null 이면
+ * 「안 바꿈」이라 비우기를 표현할 방법이 달리 없기 때문이다.
+ */
 export interface Correction {
   name?: string
   holder?: string
   appNo?: string
   regNo?: string
+  /** 단계 정정. "원래부터 이 단계였다"는 뜻이라 마지막 진행일을 움직이지 않는다. */
+  stage?: string
 }
 
 /**
@@ -722,19 +730,21 @@ export async function correctRecord(
   reason: string
 ): Promise<void> {
   const changed = Object.entries(patch)
-    .filter(([, v]) => v !== undefined && v !== "")
+    .filter(([, v]) => v !== undefined)
     .map(([k]) => k)
   if (changed.length === 0) return
 
   const { error } = await supabase.from("progress_entries").insert({
     occurred_on: today,
+    // 단계를 안 바꾸면 지금 단계를 그대로 다시 적는다. 무해하다.
+    stage: patch.stage ?? stage,
     entity_kind: entityKind,
     entity_id: entityId,
-    stage,
     direction: null,
     counterpart: "",
     next_turn: "none",
     due_on: null,
+    // undefined 는 null 로(안 바꿈), 빈 문자열은 그대로(비움) 넘긴다.
     app_no: patch.appNo ?? null,
     reg_no: patch.regNo ?? null,
     probability: null,

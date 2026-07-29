@@ -535,6 +535,7 @@ export function RegisterView() {
                                 appNo: row.appNo,
                                 regNo: row.regNo,
                               }}
+                              stageOptions={pipeline}
                               onSaved={refresh}
                             />
                           ) : null}
