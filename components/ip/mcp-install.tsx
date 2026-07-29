@@ -63,6 +63,20 @@ interface Client {
 }
 
 /**
+ * UTF-8 문자열을 base64 로.
+ *
+ * `btoa` 는 Latin-1 만 받아서, 토큰을 아직 발급하지 않았을 때 쓰는 한글
+ * 자리표시자(`<발급한 토큰>`)에서 예외를 던진다. 그 호출이 렌더 경로에 있어서
+ * 기록하기 화면 전체가 죽었다. 바이트로 바꿔 넣어 어떤 글자든 견디게 한다.
+ */
+function base64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value)
+  let binary = ""
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+/**
  * 커맨드와 딥링크는 각 도구의 실제 규격을 따른다. 틀리면 안내가 없느니만 못하다.
  *  * Claude Code·Gemini CLI 는 `--transport http`, Codex 는 `--url` 로 서로 다르다.
  *  * Cursor 는 설정 JSON 을 base64 로, VS Code 는 URL 인코딩으로 받는다.
@@ -73,7 +87,11 @@ function buildClients(token: string | null): Client[] {
   const secret = token ?? "<발급한 토큰>"
   const headers = { Authorization: `Bearer ${secret}` }
 
-  const cursorConfig = btoa(JSON.stringify({ url: MCP_URL, headers }))
+  // base64 에는 `+` 와 `/` 가 섞인다. 쿼리 문자열에서 `+` 는 공백으로 읽히므로
+  // 그대로 실어 보내면 받는 쪽에서 설정이 깨진다. 한 번 더 인코딩해 넘긴다.
+  const cursorConfig = encodeURIComponent(
+    base64Utf8(JSON.stringify({ url: MCP_URL, headers }))
+  )
   const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=${SERVER_NAME}&config=${cursorConfig}`
 
   const vscodeConfig = encodeURIComponent(
