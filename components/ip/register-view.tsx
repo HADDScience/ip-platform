@@ -13,7 +13,8 @@ import { useData } from "@/components/ip/data-provider"
 import { useToday } from "@/hooks/use-today"
 import { useQueryParam } from "@/hooks/use-search-string"
 import { detect, issuesById } from "@/lib/detect"
-import { exportAll } from "@/lib/excel"
+import { exportAll, exporterName } from "@/lib/excel"
+import { useAuth } from "@/components/ip/auth-gate"
 import { formatDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 
@@ -37,6 +38,7 @@ function IssueChip({ count }: { count: number }) {
 
 export function RegisterView() {
   const today = useToday()
+  const { member } = useAuth()
   const { trademarks, patents, progress } = useData()
   // 대시보드에서 넘어올 때의 초기 탭만 쿼리로 받는다. 이후 전환은 화면 안에서만.
   const initialTab = useQueryParam("kind", "trademark")
@@ -84,7 +86,9 @@ export function RegisterView() {
           <ExportViewButton
             label="엑셀로 내려받기"
             count={trademarks.length + patents.length}
-            onExport={() => exportAll({ trademarks, patents, progress }, today)}
+            onExport={() =>
+              exportAll({ trademarks, patents }, today, exporterName(member))
+            }
           />
         }
       />

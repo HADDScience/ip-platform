@@ -18,4 +18,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 상태값을 늘릴 때는 `ip.status_options` 에 행을 넣고 `status-badge.tsx` 에 톤을 추가한다.
   코드의 상수 배열을 고치는 것이 아니다.
 - 폼은 `components/ip/record-editor.tsx` 의 필드 서술로 만든다. 엔티티마다 폼을 새로 짜지 않는다.
+- 엑셀 내보내기는 NAS 「특허 및 상표권」 워크북의 양식을 따른다. `lib/xlsx/parts.ts` 의
+  styles/theme 은 그 워크북에서 뽑은 것이라 손으로 고치지 않는다. `lib/excel.ts` 의 `style`·
+  `dxf` 숫자는 그 안의 인덱스를 가리키므로 열을 넣고 뺄 때 함께 맞춰야 한다.
 - 커밋 전에 `pnpm lint`(경고 포함 0)와 `pnpm build` 가 통과해야 한다.

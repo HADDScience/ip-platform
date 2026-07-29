@@ -58,11 +58,17 @@ values ('someone@example.com', 'editor', '설명');
 
 ## 엑셀 내보내기
 
-- **전체 내보내기** — 헤더 우측 `전체 엑셀`. 시트 4개(상표/특허/커뮤니케이션 로그/미결 액션)
-  → `HADD_IP_현황_YYYYMMDD.xlsx`
-- **현재 화면만** — 각 목록의 `이 화면 엑셀 (n)`. 적용된 필터·검색·정렬 그대로.
+NAS 의 「특허 및 상표권」 워크북과 **같은 양식**으로 나옵니다. 받는 사람이 늘 보던 파일과
+그대로 대조할 수 있어야 하기 때문입니다.
 
-한글 헤더, 열 너비, 자동필터가 적용돼 있고 경과일은 숫자로 들어갑니다.
+- 시트는 둘 — **「특허」**(순번·구분·연구개발 내용·출원번호·출원날짜·등록번호·등록날짜·
+  출원인·기타)와 **「상표권」**(순번·구분·이름·등록/출원번호·날짜·보유자 + 오른쪽 범례).
+- 파일명 `특허 및 상표권_YYMMDD_<내려받은 사람>.xlsx`
+- 글꼴·정렬·표 스타일(`TableStyleLight1`)은 기준 워크북의 `styles.xml`·`theme1.xml` 을
+  그대로 싣습니다(`lib/xlsx/parts.ts`). 표에 자동 필터가 걸려 있어 걸러 보는 일은 엑셀이 합니다.
+
+우리 대장의 12단계는 기준 워크북의 굵은 **구분**으로 묶여 나갑니다
+(예: 출원·출원공고·심사중·의견제출통지·보정서제출 → 「특허 출원」). 매핑은 `lib/excel.ts` 에 있습니다.
 
 ## 로컬 실행
 
@@ -123,4 +129,7 @@ Supabase 로 직접 조회합니다.
 ## 기술 스택
 
 Next.js 16 (App Router, static export) · React 19 · TypeScript(strict) · Tailwind CSS v4 ·
-shadcn/ui (Base UI) · Supabase (Postgres + Auth + RLS) · SheetJS(xlsx) · pnpm
+shadcn/ui (Base UI) · Supabase (Postgres + Auth + RLS) · pnpm
+
+엑셀은 라이브러리 없이 `lib/xlsx/` 에서 OOXML 을 직접 씁니다. 기준 워크북의 서식을
+그대로 유지해야 하는데, SheetJS 커뮤니티판은 셀 서식과 표를 쓰지 못하기 때문입니다.

@@ -15,20 +15,21 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useData } from "@/components/ip/data-provider"
 import { useToday } from "@/hooks/use-today"
-import { exportAll } from "@/lib/excel"
+import { exportAll, exporterName } from "@/lib/excel"
 import { formatDate } from "@/lib/date"
 
 export function SiteHeader() {
   const today = useToday()
   const { resolvedTheme, setTheme } = useTheme()
   const { member, signOut } = useAuth()
-  const { meta, trademarks, patents, progress, refresh, reloading } = useData()
+  const { meta, trademarks, patents, refresh, reloading } = useData()
   const [busy, setBusy] = useState(false)
 
   async function onExportAll() {
     setBusy(true)
     try {
-      await exportAll({ trademarks, patents, progress }, today)
+      // 파일명 끝에 내려받은 사람을 적는다 — 기준 워크북의 관행이다.
+      await exportAll({ trademarks, patents }, today, exporterName(member))
     } finally {
       setBusy(false)
     }
