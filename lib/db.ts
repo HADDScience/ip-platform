@@ -242,7 +242,10 @@ export interface Snapshot {
   meta: OrgMeta
 }
 
-function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
+function unwrap<T>(res: {
+  data: T | null
+  error: { message: string } | null
+}): T {
   if (res.error) throw new Error(res.error.message)
   return (res.data ?? []) as T
 }
@@ -261,7 +264,11 @@ export async function fetchSnapshot(): Promise<Snapshot> {
       .order("occurred_on", { ascending: false }),
     supabase.from("actions").select("*").order("id"),
     supabase.from("integrity_flags").select("*").order("created_at"),
-    supabase.from("status_options").select("*").order("kind").order("sort_order"),
+    supabase
+      .from("status_options")
+      .select("*")
+      .order("kind")
+      .order("sort_order"),
     supabase.from("org_meta").select("*").eq("id", 1).maybeSingle(),
   ])
 
@@ -397,7 +404,10 @@ export async function createCase(
 }
 
 export async function removeProgress(id: string) {
-  const { error } = await supabase.from("progress_entries").delete().eq("id", id)
+  const { error } = await supabase
+    .from("progress_entries")
+    .delete()
+    .eq("id", id)
   check(error)
 }
 
@@ -621,44 +631,43 @@ export function nextId(prefix: string, existing: string[]): string {
 // MCP 개인 토큰
 // ---------------------------------------------------------------------------
 
-/** 목록에 보여줄 토큰 한 개. 원문은 발급 순간 말고는 어디에도 없다. */
+/**
+ * 지금 살아 있는 토큰. 최대 하나다.
+ * 원문은 발급 순간 말고는 어디에도 없어서 앞자리와 사용 시각만 알 수 있다.
+ */
 export interface McpToken {
-  id: string
-  name: string
   prefix: string
   createdAt: string
   lastUsedAt: string | null
 }
 
-export async function listMcpTokens(): Promise<McpToken[]> {
+export async function currentMcpToken(): Promise<McpToken | null> {
   const { data, error } = await supabase
     .from("mcp_tokens")
-    .select("id, name, prefix, created_at, last_used_at")
+    .select("prefix, created_at, last_used_at")
     .is("revoked_at", null)
     .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
   check(error)
-  return (data ?? []).map((r) => ({
-    id: r.id as string,
-    name: r.name as string,
-    prefix: r.prefix as string,
-    createdAt: r.created_at as string,
-    lastUsedAt: r.last_used_at as string | null,
-  }))
+  if (!data) return null
+  return {
+    prefix: data.prefix as string,
+    createdAt: data.created_at as string,
+    lastUsedAt: data.last_used_at as string | null,
+  }
 }
 
 /**
- * 토큰 발급. 원문은 이 반환값으로만 존재하므로 화면에서 잃어버리면 끝이다.
- * 다시 보여줄 방법이 없어 새로 발급받아야 한다.
+ * 토큰 재발급. 쓰던 것은 즉시 죽고 새 것 하나만 남는다.
+ *
+ * 원문은 이 반환값으로만 존재한다. 화면을 벗어나면 다시 볼 방법이 없어
+ * (DB 에는 해시만 있다) 그때는 또 재발급받아야 한다.
  */
-export async function issueMcpToken(name: string): Promise<string> {
-  const { data, error } = await supabase.rpc("issue_mcp_token", { p_name: name })
+export async function reissueMcpToken(): Promise<string> {
+  const { data, error } = await supabase.rpc("reissue_mcp_token")
   check(error)
   return data as string
-}
-
-export async function revokeMcpToken(id: string): Promise<void> {
-  const { error } = await supabase.rpc("revoke_mcp_token", { p_id: id })
-  check(error)
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +694,11 @@ export async function saveStageOrder(
   const { error } = await supabase
     .from("member_prefs")
     .upsert(
-      { user_id: userId, stage_order: order, updated_at: new Date().toISOString() },
+      {
+        user_id: userId,
+        stage_order: order,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: "user_id" }
     )
   check(error)

@@ -197,10 +197,9 @@ function buildClients(token: string | null): Client[] {
       steps: (
         <ol className="ml-3.5 list-decimal space-y-1">
           <li>
-            <b>개발자 모드를 먼저 켭니다.</b>{" "}
-            개인 요금제(Plus·Pro)는 설정에서 직접 켜고, 회사
-            요금제(Business·Enterprise)는 관리자가 Workspace Settings → Permissions
-            &amp; Roles 에서 열어줘야 합니다.
+            <b>개발자 모드를 먼저 켭니다.</b> 개인 요금제(Plus·Pro)는 설정에서
+            직접 켜고, 회사 요금제(Business·Enterprise)는 관리자가 Workspace
+            Settings → Permissions &amp; Roles 에서 열어줘야 합니다.
           </li>
           <li>
             <b>설정 → 커넥터</b> 에서 커스텀 커넥터를 추가합니다.
@@ -215,12 +214,15 @@ function buildClients(token: string | null): Client[] {
       ),
       note: (
         <>
-          개발자 모드를 켜지 않으면 커넥터를 추가하는 메뉴 자체가 보이지 않습니다.
-          무료 요금제는 지원되지 않습니다.
+          개발자 모드를 켜지 않으면 커넥터를 추가하는 메뉴 자체가 보이지
+          않습니다. 무료 요금제는 지원되지 않습니다.
           <br />
-          Supabase 처럼 <b>「Add to ChatGPT」 원클릭 버튼은 만들 수 없습니다</b> —
-          그 버튼은 OpenAI 앱 디렉터리에 심사를 거쳐 등재된 앱에만 발급됩니다.
-          사내 도구를 공개 디렉터리에 올릴 일은 아니라 손으로 추가하는 쪽을 씁니다.
+          Supabase 처럼 <b>
+            「Add to ChatGPT」 원클릭 버튼은 만들 수 없습니다
+          </b>{" "}
+          — 그 버튼은 OpenAI 앱 디렉터리에 심사를 거쳐 등재된 앱에만 발급됩니다.
+          사내 도구를 공개 디렉터리에 올릴 일은 아니라 손으로 추가하는 쪽을
+          씁니다.
         </>
       ),
       prompt: [
@@ -265,9 +267,9 @@ export function McpInstall() {
           <div className="min-w-0">
             <DialogTitle>AI 도구에 연결하기</DialogTitle>
             <DialogDescription>
-              쓰시는 도구에 붙이면, 메일 본문을 그대로 주고 &ldquo;기록해 줘&rdquo;
-              라고 말하는 것으로 입력이 끝납니다. 붙는 서버는 도구가 달라도
-              하나입니다.
+              쓰시는 도구에 붙이면, 메일 본문을 그대로 주고 &ldquo;기록해
+              줘&rdquo; 라고 말하는 것으로 입력이 끝납니다. 붙는 서버는 도구가
+              달라도 하나입니다.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -350,8 +352,9 @@ export function McpInstall() {
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/60 p-4">
           <p className="text-[11px]/relaxed text-muted-foreground">
-            토큰은 도구 한 대에 하나씩 두는 것이 좋습니다. 한 대를 잃어버리면 그것만
-            폐기하면 됩니다.
+            커맨드에는 토큰이 그대로 들어갑니다.{" "}
+            <b>화면 공유·메신저·티켓에 붙여넣지 마세요.</b> 새어 나갔다 싶으면
+            위에서 재발급하면 옛 토큰은 즉시 죽습니다.
           </p>
           <div className="flex items-center gap-1.5">
             {/* 안내를 통째로 복사해 에이전트에게 넘기는 길. 손으로 옮기지 않아도 된다. */}
@@ -371,7 +374,11 @@ export function McpInstall() {
               href="/intake"
               className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
             >
-              <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={Mail01Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               메일 붙여넣기
             </Link>
           </div>
