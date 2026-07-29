@@ -11,6 +11,13 @@ import {
   KakaoSignInButton,
 } from "@/components/ip/social-buttons"
 import { supabase } from "@/lib/supabase"
+import {
+  clearHubLoginTried,
+  goToHubLogin,
+  hasTriedHubLogin,
+  hubUrl,
+  markHubLoginTried,
+} from "@/lib/hub"
 
 interface Member {
   userId: string
@@ -29,6 +36,9 @@ interface AuthValue {
 
 /**
  * 카카오 로그인 노출 여부.
+ *
+ * 아래 로그인 버튼은 **로컬 개발 폴백 전용**이다. 배포 환경에서 로그인 화면은
+ * 허브 하나뿐이고, 이 앱은 허브로 보내기만 한다(`lib/hub.ts`).
  *
  * Supabase 의 카카오 프로바이더는 `account_email profile_image profile_nickname` 를
  * 고정으로 요청한다. 클라이언트의 scopes 옵션은 이 기본값을 대체하지 않고 덧붙기만 하고,
@@ -57,6 +67,7 @@ type RequestState = "pending" | "approved" | "rejected"
 type Phase =
   | { kind: "loading" }
   | { kind: "signed-out" }
+  | { kind: "leaving" }
   | { kind: "needs-request"; session: Session }
   | { kind: "awaiting"; session: Session; state: RequestState }
   | { kind: "ready"; session: Session; member: Member }
@@ -71,9 +82,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     async function resolve(session: Session | null) {
       if (cancelled) return
       if (!session) {
+        // 로그인 화면은 허브 하나뿐이다. 돌아올 자리를 들려 허브로 보낸다.
+        // 허브를 쓸 수 없거나(로컬) 이미 다녀왔으면 아래 signed-out 화면을 쓴다.
+        if (hubUrl() && !hasTriedHubLogin()) {
+          markHubLoginTried()
+          setPhase({ kind: "leaving" })
+          goToHubLogin()
+          return
+        }
         setPhase({ kind: "signed-out" })
         return
       }
+
+      // 허브 왕복이 성사됐다. 다음 로그아웃 때 다시 보낼 수 있게 표시를 지운다.
+      clearHubLoginTried()
 
       const { data: memberRow } = await supabase
         .from("members")
@@ -150,15 +172,48 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setPhase({ kind: "signed-out" })
   }
 
-  if (phase.kind === "loading") {
+  if (phase.kind === "loading" || phase.kind === "leaving") {
     return (
       <Centered>
-        <p className="text-muted-foreground">확인 중…</p>
+        <p className="text-muted-foreground">
+          {phase.kind === "leaving" ? "허브 로그인 화면으로 이동 중…" : "확인 중…"}
+        </p>
       </Centered>
     )
   }
 
   if (phase.kind === "signed-out") {
+    // 허브에 다녀왔는데도 세션이 없다. 자동 재이동은 무한 왕복이 되므로 손으로 맡긴다.
+    if (hubUrl()) {
+      return (
+        <Centered>
+          <div className="w-full max-w-xs">
+            <div className="mb-1 text-[10px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+              HADD SCIENCE
+            </div>
+            <h1 className="font-heading text-lg font-semibold tracking-tight">
+              지식재산권 팔로우업
+            </h1>
+            <p className="mt-2 text-xs/relaxed text-muted-foreground">
+              허브에서 로그인이 완료되지 않았습니다. 다시 시도해 주세요.
+            </p>
+            <Button
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                markHubLoginTried()
+                setPhase({ kind: "leaving" })
+                goToHubLogin()
+              }}
+            >
+              허브에서 로그인
+            </Button>
+          </div>
+        </Centered>
+      )
+    }
+
+    // 로컬 개발 폴백 — 배포 환경에서는 여기까지 오지 않는다.
     return (
       <Centered>
         <div className="w-full max-w-xs">
@@ -169,7 +224,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             지식재산권 팔로우업
           </h1>
           <p className="mt-2 text-xs/relaxed text-muted-foreground">
-            로그인 후 접근 신청을 하면 관리자 승인 뒤 이용할 수 있습니다.
+            로컬 개발용 로그인입니다. 배포 환경에서는 허브 로그인 화면을 씁니다.
           </p>
 
           <div className="mt-5 flex flex-col gap-2.5">
@@ -186,10 +241,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               />
             ) : null}
           </div>
-
-          <p className="mt-4 text-[11px] text-muted-foreground">
-            허브에서 이미 로그인하셨다면 자동으로 통과됩니다.
-          </p>
         </div>
       </Centered>
     )

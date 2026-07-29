@@ -13,6 +13,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `useSearchParams` 를 쓰면 정적 프리렌더에서 트리가 빠진다. 쿼리 파라미터는
   `hooks/use-search-string.ts` 의 `useQueryParam` 을 쓴다.
 - 오늘 날짜는 `hooks/use-today.ts` 의 `useToday()` 로만 얻는다(하이드레이션 불일치 방지).
+- 로그인 화면은 허브에만 둔다. 여기서는 `lib/hub.ts` 로 `/hub/?next=` 에 보내기만 한다.
+  `auth-gate.tsx` 의 소셜 버튼은 localhost 폴백이므로 배포 흐름의 기준으로 삼지 않는다.
 - 상태값을 늘릴 때는 `ip.status_options` 에 행을 넣고 `status-badge.tsx` 에 톤을 추가한다.
   코드의 상수 배열을 고치는 것이 아니다.
 - 폼은 `components/ip/record-editor.tsx` 의 필드 서술로 만든다. 엔티티마다 폼을 새로 짜지 않는다.
