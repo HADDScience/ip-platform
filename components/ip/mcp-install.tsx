@@ -10,7 +10,6 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 
-import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -20,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
+import { McpTokenPanel } from "@/components/ip/mcp-token-panel"
 
 /**
  * AI 도구 설치 안내.
@@ -67,12 +67,17 @@ interface Client {
  *  * Claude Code·Gemini CLI 는 `--transport http`, Codex 는 `--url` 로 서로 다르다.
  *  * Cursor 는 설정 JSON 을 base64 로, VS Code 는 URL 인코딩으로 받는다.
  */
-function buildClients(): Client[] {
-  const cursorConfig = btoa(JSON.stringify({ url: MCP_URL }))
+function buildClients(token: string | null): Client[] {
+  // 토큰을 아직 발급하지 않았으면 자리를 비워 둔다. 커맨드 모양은 미리 보이되
+  // 그대로 붙여넣으면 안 된다는 것이 드러나야 한다.
+  const secret = token ?? "<발급한 토큰>"
+  const headers = { Authorization: `Bearer ${secret}` }
+
+  const cursorConfig = btoa(JSON.stringify({ url: MCP_URL, headers }))
   const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=${SERVER_NAME}&config=${cursorConfig}`
 
   const vscodeConfig = encodeURIComponent(
-    JSON.stringify({ name: SERVER_NAME, type: "http", url: MCP_URL })
+    JSON.stringify({ name: SERVER_NAME, type: "http", url: MCP_URL, headers })
   )
   const vscodeLink = `vscode:mcp/install?${vscodeConfig}`
 
@@ -91,9 +96,20 @@ function buildClients(): Client[] {
   })
 
   return [
-    cli("Claude Code", `claude mcp add --transport http ${SERVER_NAME} ${MCP_URL}`),
-    cli("Codex", `codex mcp add ${SERVER_NAME} --url ${MCP_URL}`),
-    cli("Gemini CLI", `gemini mcp add --transport http ${SERVER_NAME} ${MCP_URL}`),
+    cli(
+      "Claude Code",
+      `claude mcp add --transport http ${SERVER_NAME} ${MCP_URL} --header "Authorization: Bearer ${secret}"`
+    ),
+    // Codex 는 토큰 값이 아니라 **환경변수 이름**을 저장한다. 설정 파일에 비밀이
+    // 남지 않는 대신, 쓰기 전에 그 변수를 내보내 둬야 한다.
+    cli(
+      "Codex",
+      `export HADD_IP_TOKEN=${secret}\ncodex mcp add ${SERVER_NAME} --url ${MCP_URL} --bearer-token-env-var HADD_IP_TOKEN`
+    ),
+    cli(
+      "Gemini CLI",
+      `gemini mcp add --transport http ${SERVER_NAME} ${MCP_URL} --header "Authorization: Bearer ${secret}"`
+    ),
     {
       id: "cursor",
       name: "Cursor",
@@ -137,7 +153,13 @@ function buildClients(): Client[] {
           <li>
             <b>사용자 지정 커넥터 추가</b> 를 누릅니다.
           </li>
-          <li>아래 주소를 붙여넣고 저장합니다.</li>
+          <li>아래 주소를 붙여넣습니다.</li>
+          <li>
+            <b>Request headers</b> 에{" "}
+            <code className="bg-muted px-1">Authorization</code> ={" "}
+            <code className="bg-muted px-1">Bearer {secret}</code> 를 넣고
+            저장합니다.
+          </li>
         </ol>
       ),
       note: "무료 요금제는 커넥터를 하나만 둘 수 있고, Pro 이상은 여러 개를 붙일 수 있습니다.",
@@ -147,6 +169,7 @@ function buildClients(): Client[] {
         "1. 설정 → 커넥터",
         "2. 사용자 지정 커넥터 추가",
         `3. 주소 입력: ${MCP_URL}`,
+        `4. Request headers 에 Authorization = Bearer ${secret}`,
       ].join("\n"),
     },
     {
@@ -164,7 +187,12 @@ function buildClients(): Client[] {
           <li>
             <b>설정 → 커넥터</b> 에서 커스텀 커넥터를 추가합니다.
           </li>
-          <li>아래 주소를 붙여넣고 저장합니다.</li>
+          <li>아래 주소를 붙여넣습니다.</li>
+          <li>
+            헤더에 <code className="bg-muted px-1">Authorization</code> ={" "}
+            <code className="bg-muted px-1">Bearer {secret}</code> 를 넣고
+            저장합니다.
+          </li>
         </ol>
       ),
       note: (
@@ -183,14 +211,17 @@ function buildClients(): Client[] {
         "1. 개발자 모드를 켠다 (설정 → 커넥터 → 고급). 회사 요금제는 관리자가 열어줘야 한다.",
         "2. 설정 → 커넥터에서 커스텀 커넥터 추가",
         `3. 주소 입력: ${MCP_URL}`,
+        `4. 헤더에 Authorization = Bearer ${secret}`,
       ].join("\n"),
     },
   ]
 }
 
 export function McpInstall() {
-  const clients = useMemo(() => buildClients(), [])
-  const [tab, setTab] = useState<string>(clients[0].id)
+  // 방금 발급한 토큰. 커맨드·딥링크·프롬프트에 그대로 실어 보낸다.
+  const [token, setToken] = useState<string | null>(null)
+  const clients = useMemo(() => buildClients(token), [token])
+  const [tab, setTab] = useState<string>("claude-code")
   const [copied, setCopied] = useState<string | null>(null)
 
   const current = clients.find((c) => c.id === tab) ?? clients[0]
@@ -209,9 +240,6 @@ export function McpInstall() {
     <Dialog>
       <DialogTrigger className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground">
         AI 도구 설치하기 (MCP)
-        <Badge className="bg-amber-500/15 text-[9px] text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-          준비 중
-        </Badge>
       </DialogTrigger>
 
       <DialogContent>
@@ -225,6 +253,8 @@ export function McpInstall() {
             </DialogDescription>
           </div>
         </DialogHeader>
+
+        <McpTokenPanel onToken={setToken} />
 
         <Tabs
           value={tab}
@@ -302,8 +332,8 @@ export function McpInstall() {
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/60 p-4">
           <p className="text-[11px]/relaxed text-muted-foreground">
-            서버는 아직 올라가지 않았습니다. 그때까지는 메일 본문을 붙여넣어 양식을
-            채우는 기존 방법을 쓰세요.
+            토큰은 도구 한 대에 하나씩 두는 것이 좋습니다. 한 대를 잃어버리면 그것만
+            폐기하면 됩니다.
           </p>
           <div className="flex items-center gap-1.5">
             {/* 안내를 통째로 복사해 에이전트에게 넘기는 길. 손으로 옮기지 않아도 된다. */}
@@ -344,7 +374,8 @@ function CopyRow({
 }) {
   return (
     <div className="flex items-stretch gap-1">
-      <code className="min-w-0 flex-1 overflow-x-auto bg-muted px-2 py-1.5 text-[10.5px] whitespace-nowrap text-foreground">
+      {/* Codex 처럼 두 줄짜리 커맨드가 있어 줄바꿈은 살린다. */}
+      <code className="min-w-0 flex-1 overflow-x-auto bg-muted px-2 py-1.5 text-[10.5px] whitespace-pre text-foreground">
         {text}
       </code>
       <button

@@ -31,5 +31,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  // Edge Function 은 Deno 에서 돈다. 브라우저·Next 설정으로 검사하면
+  // Deno 전역과 jsr: 임포트가 전부 오류로 잡힌다.
+  "exclude": ["node_modules", "supabase/functions"]
 }

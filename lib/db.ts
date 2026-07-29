@@ -610,3 +610,47 @@ export function nextId(prefix: string, existing: string[]): string {
   const width = prefix === "A" ? 1 : 2
   return `${prefix}-${String(next).padStart(width, "0")}`
 }
+
+// ---------------------------------------------------------------------------
+// MCP 개인 토큰
+// ---------------------------------------------------------------------------
+
+/** 목록에 보여줄 토큰 한 개. 원문은 발급 순간 말고는 어디에도 없다. */
+export interface McpToken {
+  id: string
+  name: string
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+export async function listMcpTokens(): Promise<McpToken[]> {
+  const { data, error } = await supabase
+    .from("mcp_tokens")
+    .select("id, name, prefix, created_at, last_used_at")
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false })
+  check(error)
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    prefix: r.prefix as string,
+    createdAt: r.created_at as string,
+    lastUsedAt: r.last_used_at as string | null,
+  }))
+}
+
+/**
+ * 토큰 발급. 원문은 이 반환값으로만 존재하므로 화면에서 잃어버리면 끝이다.
+ * 다시 보여줄 방법이 없어 새로 발급받아야 한다.
+ */
+export async function issueMcpToken(name: string): Promise<string> {
+  const { data, error } = await supabase.rpc("issue_mcp_token", { p_name: name })
+  check(error)
+  return data as string
+}
+
+export async function revokeMcpToken(id: string): Promise<void> {
+  const { error } = await supabase.rpc("revoke_mcp_token", { p_id: id })
+  check(error)
+}
