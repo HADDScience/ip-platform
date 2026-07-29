@@ -206,16 +206,21 @@ function buildClients(token: string | null): Client[] {
             옮겨 온 자리라, 커넥터라는 메뉴는 더 이상 없습니다.
           </li>
           <li>
-            플러그인 탭에서 검색창 옆 <b>+</b> 를 눌러 새 플러그인을 만듭니다.
+            플러그인 탭에서 검색창 옆 <b>+</b> 를 눌러 「새 플러그인」을 엽니다.
           </li>
           <li>
-            이름을 적고 <b>서버 URL</b> 에 아래 주소를 넣습니다.
+            <b>이름</b> 을 적고(예: HADD IP), <b>연결</b> 은 「서버 URL」 인
+            채로 아래 주소를 넣습니다. 아이콘·설명은 건너뛰어도 됩니다.
           </li>
           <li>
-            인증(Authentication)에{" "}
-            <code className="bg-muted px-1">Authorization</code> ={" "}
-            <code className="bg-muted px-1">Bearer {secret}</code> 를 넣고
-            저장합니다.
+            <b>인증을 「OAuth」 에서 「API 키」 로 바꾸고</b> 토큰을 넣습니다.
+            그대로 두면 실패합니다 — 우리 서버에는 OAuth 엔드포인트가 없어
+            「고급 OAuth 설정」이 아무것도 찾지 못합니다.
+          </li>
+          <li>
+            경고 아래 <b>「내용을 이해했으며 계속 진행하길 원합니다」</b> 를
+            체크하고 <b>만들기</b>. 검토되지 않았다는 경고는 공개 디렉터리에
+            등재하지 않은 사내 서버라면 정상입니다.
           </li>
         </ol>
       ),
@@ -223,6 +228,9 @@ function buildClients(token: string | null): Client[] {
         <>
           개발자 모드를 켜지 않으면 플러그인을 직접 만드는 <b>+</b> 가 보이지
           않습니다. 무료 요금제는 지원되지 않습니다.
+          <br />
+          토큰은 <code className="bg-muted px-1">Bearer</code> 를 붙이든 안
+          붙이든 됩니다 — 서버가 접두사를 벗겨내고 읽습니다.
           <br />
           Supabase 처럼 <b>
             「Add to ChatGPT」 원클릭 버튼은 만들 수 없습니다
@@ -237,9 +245,12 @@ function buildClients(token: string | null): Client[] {
         "",
         "1. 설정 → 보안 및 로그인 → 개발자 모드 켜기. 회사 요금제는 관리자가 열어줘야 한다.",
         "2. 설정 → 플러그인 (예전 「커넥터」가 이름을 바꿔 옮겨 온 자리)",
-        "3. 플러그인 탭에서 검색창 옆 + 를 눌러 새 플러그인 만들기",
-        `4. 서버 URL: ${MCP_URL}`,
-        `5. 인증에 Authorization = Bearer ${secret}`,
+        "3. 플러그인 탭에서 검색창 옆 + 를 눌러 「새 플러그인」 열기",
+        "4. 이름: HADD IP / 연결: 서버 URL",
+        `5. 서버 URL: ${MCP_URL}`,
+        `6. 인증을 OAuth 에서 「API 키」 로 바꾸고 토큰 입력: ${secret}`,
+        "   (Bearer 접두사는 붙여도 되고 안 붙여도 된다)",
+        "7. 「내용을 이해했으며 계속 진행하길 원합니다」 체크 후 만들기",
       ].join("\n"),
     },
   ]
