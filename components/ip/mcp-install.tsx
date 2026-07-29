@@ -162,64 +162,40 @@ function buildClients(token: string | null): Client[] {
     {
       id: "claude-ai",
       name: "claude.ai",
-      // 주소는 표 안에 이미 있다.
-      showUrl: false,
+      showUrl: true,
       steps: (
-        <div className="flex flex-col gap-2.5">
-          <ol className="ml-3.5 list-decimal space-y-1">
-            <li>
-              <b>설정 → 커넥터</b> 에서 <b>커스텀 커넥터 추가</b> 를 누릅니다.
-            </li>
-            <li>양식을 아래대로 채웁니다.</li>
-          </ol>
-
-          <table className="w-full border border-border/60 text-[11px]">
-            <tbody className="divide-y divide-border/60">
-              {(
-                [
-                  ["이름", "HADD IP"],
-                  ["원격 MCP 서버 URL", <CopyRow key="url" text={MCP_URL} />],
-                  [
-                    "고급 설정",
-                    "비워 둡니다 (OAuth 클라이언트 ID·시크릿 모두 선택사항)",
-                  ],
-                ] as [string, React.ReactNode][]
-              ).map(([field, value]) => (
-                <tr key={field}>
-                  <th className="w-28 bg-muted/50 px-2 py-1.5 text-left align-top font-medium text-muted-foreground">
-                    {field}
-                  </th>
-                  <td className="px-2 py-1.5">{value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <ol className="ml-3.5 list-decimal space-y-1" start={3}>
-            <li>
-              <b>추가</b> 를 누르면 <b>승인 화면</b>이 뜹니다. 허브 로그인 상태
-              그대로 「승인」을 누르면 됩니다.
-            </li>
-          </ol>
+        <div className="flex flex-col gap-2">
+          <p className="text-foreground">
+            <b>지금은 붙지 않습니다.</b> claude.ai 커넥터 쪽 문제이고 우리 서버
+            문제가 아닙니다.
+          </p>
+          <p>
+            커넥터는 인가 서버 주소를 <b>호스트 루트</b>(
+            <code className="bg-muted px-1">/.well-known/…</code>)에서만
+            찾습니다. 우리 서버는 Supabase 함수 경로 아래에 있어 그 자리를 쓸 수
+            없고, Supabase 는 그 경로에 401 을 돌려주어 커넥터가 더 시도하지
+            않고 멈춥니다. 규격대로 401 응답에 주소를 적어 보내지만 그것도 보지
+            않습니다(Anthropic claude-ai-mcp #341 · #367 · #376 로 보고된 문제).
+          </p>
+          <p>
+            <b>Claude 를 쓰신다면 「Claude Code」 탭</b>의 커맨드 한 줄로 붙이면
+            됩니다. Claude Desktop 도 같은 방식입니다. ChatGPT 는 OAuth 로 정상
+            연결됩니다.
+          </p>
+          <p className="text-muted-foreground">
+            커넥터가 고쳐지면 아래 주소를 그대로 쓰면 됩니다. 서버는 바꿀 것이
+            없습니다.
+          </p>
         </div>
       ),
-      note: (
-        <>
-          <b>토큰을 넣는 칸이 없습니다.</b> 클라이언트 등록과 인가를 커넥터가
-          알아서 하므로(동적 등록), 고급 설정은 비워 두면 됩니다.
-          <br />
-          무료 요금제는 커넥터를 하나만 둘 수 있고, Pro 이상은 여러 개를 붙일 수
-          있습니다.
-        </>
-      ),
+      note: "우리 서버를 우리가 뿌리째 가진 주소(예: mcp.haddscience.com)로 옮기면 루트를 쓸 수 있어 가능성이 생깁니다. 다만 같은 증상이 여러 건 보고돼 있어 옮긴다고 반드시 붙는다는 보장은 없습니다.",
       prompt: [
-        "claude.ai 에 HADD IP 플랫폼의 MCP 서버를 커넥터로 추가하는 방법:",
+        "claude.ai 웹 커넥터는 현재 이 서버에 붙지 않는다.",
+        "커넥터가 인가 서버 메타데이터를 호스트 루트에서만 찾는데, 이 서버는",
+        "Supabase 함수 경로 아래에 있어 루트를 쓸 수 없다.",
         "",
-        "1. 설정 → 커넥터 → 커스텀 커넥터 추가",
-        "2. 이름: HADD IP",
-        `3. 원격 MCP 서버 URL: ${MCP_URL}`,
-        "4. 고급 설정(OAuth 클라이언트 ID·시크릿)은 비워 둔다 — 동적 등록으로 자동 처리된다",
-        "5. 추가 → 승인 화면에서 「승인」",
+        "Claude 를 쓴다면 Claude Code 로 붙이면 된다:",
+        `claude mcp add --transport http ${SERVER_NAME} ${MCP_URL} --header "Authorization: Bearer ${secret}"`,
       ].join("\n"),
     },
     {
