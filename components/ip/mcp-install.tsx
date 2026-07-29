@@ -162,38 +162,71 @@ function buildClients(token: string | null): Client[] {
     {
       id: "claude-ai",
       name: "claude.ai",
-      showUrl: true,
+      // 주소는 표 안에 이미 있다.
+      showUrl: false,
       steps: (
-        <ol className="ml-3.5 list-decimal space-y-1">
-          <li>
-            <b>설정 → 커넥터</b> 로 들어갑니다.
-          </li>
-          <li>
-            <b>사용자 지정 커넥터 추가</b> 를 누릅니다.
-          </li>
-          <li>아래 주소를 붙여넣습니다.</li>
-          <li>
-            <b>Request headers</b> 에{" "}
-            <code className="bg-muted px-1">Authorization</code> ={" "}
-            <code className="bg-muted px-1">Bearer {secret}</code> 를 넣고
-            저장합니다.
-          </li>
-        </ol>
+        <div className="flex flex-col gap-2.5">
+          <ol className="ml-3.5 list-decimal space-y-1">
+            <li>
+              <b>설정 → 커넥터</b> 에서 <b>커스텀 커넥터 추가</b> 를 누릅니다.
+            </li>
+            <li>양식을 아래대로 채웁니다.</li>
+          </ol>
+
+          <table className="w-full border border-border/60 text-[11px]">
+            <tbody className="divide-y divide-border/60">
+              {(
+                [
+                  ["이름", "HADD IP"],
+                  ["원격 MCP 서버 URL", <CopyRow key="url" text={MCP_URL} />],
+                  [
+                    "고급 설정",
+                    "비워 둡니다 (OAuth 클라이언트 ID·시크릿 모두 선택사항)",
+                  ],
+                ] as [string, React.ReactNode][]
+              ).map(([field, value]) => (
+                <tr key={field}>
+                  <th className="w-28 bg-muted/50 px-2 py-1.5 text-left align-top font-medium text-muted-foreground">
+                    {field}
+                  </th>
+                  <td className="px-2 py-1.5">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <ol className="ml-3.5 list-decimal space-y-1" start={3}>
+            <li>
+              <b>추가</b> 를 누르면 <b>승인 화면</b>이 뜹니다. 허브 로그인 상태
+              그대로 「승인」을 누르면 됩니다.
+            </li>
+          </ol>
+        </div>
       ),
-      note: "무료 요금제는 커넥터를 하나만 둘 수 있고, Pro 이상은 여러 개를 붙일 수 있습니다.",
+      note: (
+        <>
+          <b>토큰을 넣는 칸이 없습니다.</b> 클라이언트 등록과 인가를 커넥터가
+          알아서 하므로(동적 등록), 고급 설정은 비워 두면 됩니다.
+          <br />
+          무료 요금제는 커넥터를 하나만 둘 수 있고, Pro 이상은 여러 개를 붙일 수
+          있습니다.
+        </>
+      ),
       prompt: [
         "claude.ai 에 HADD IP 플랫폼의 MCP 서버를 커넥터로 추가하는 방법:",
         "",
-        "1. 설정 → 커넥터",
-        "2. 사용자 지정 커넥터 추가",
-        `3. 주소 입력: ${MCP_URL}`,
-        `4. Request headers 에 Authorization = Bearer ${secret}`,
+        "1. 설정 → 커넥터 → 커스텀 커넥터 추가",
+        "2. 이름: HADD IP",
+        `3. 원격 MCP 서버 URL: ${MCP_URL}`,
+        "4. 고급 설정(OAuth 클라이언트 ID·시크릿)은 비워 둔다 — 동적 등록으로 자동 처리된다",
+        "5. 추가 → 승인 화면에서 「승인」",
       ].join("\n"),
     },
     {
       id: "chatgpt",
       name: "ChatGPT",
-      showUrl: true,
+      // 주소는 표 안에 이미 있다. 아래에 또 두면 같은 값이 두 번 나온다.
+      showUrl: false,
       steps: (
         <div className="flex flex-col gap-2.5">
           <ol className="ml-3.5 list-decimal space-y-1">
@@ -212,16 +245,18 @@ function buildClients(token: string | null): Client[] {
           {/* 채울 칸이 여섯이라 줄글보다 표가 빨리 읽힌다. */}
           <table className="w-full border border-border/60 text-[11px]">
             <tbody className="divide-y divide-border/60">
-              {[
-                ["아이콘", "건너뜁니다"],
-                ["이름", "HADD IP"],
-                ["설명", "건너뜁니다"],
-                ["연결", "「서버 URL」 (기본값 그대로)"],
-                ["서버 URL", "아래 주소"],
-                ["인증", "「OAuth」 (기본값 그대로 — 토큰 넣는 칸 없음)"],
-              ].map(([field, value]) => (
+              {(
+                [
+                  ["아이콘", "건너뜁니다"],
+                  ["이름", "HADD IP"],
+                  ["설명", "건너뜁니다"],
+                  ["연결", "「서버 URL」 (기본값 그대로)"],
+                  ["서버 URL", <CopyRow key="url" text={MCP_URL} />],
+                  ["인증", "「OAuth」 (기본값 그대로 — 토큰 넣는 칸 없음)"],
+                ] as [string, React.ReactNode][]
+              ).map(([field, value]) => (
                 <tr key={field}>
-                  <th className="w-24 bg-muted/50 px-2 py-1.5 text-left font-medium text-muted-foreground">
+                  <th className="w-20 bg-muted/50 px-2 py-1.5 text-left align-top font-medium text-muted-foreground">
                     {field}
                   </th>
                   <td className="px-2 py-1.5">{value}</td>
@@ -280,17 +315,18 @@ export function McpInstall() {
   const [token, setToken] = useState<string | null>(null)
   const clients = useMemo(() => buildClients(token), [token])
   const [tab, setTab] = useState<string>("claude-code")
-  const [copied, setCopied] = useState<string | null>(null)
+  // 「프롬프트 복사」 하나만 부모가 상태를 든다. 나머지는 CopyRow 가 알아서 한다.
+  const [promptCopied, setPromptCopied] = useState(false)
 
   const current = clients.find((c) => c.id === tab) ?? clients[0]
 
-  async function copy(key: string, text: string) {
+  async function copyPrompt(text: string) {
     try {
       await navigator.clipboard.writeText(text)
-      setCopied(key)
-      window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500)
+      setPromptCopied(true)
+      window.setTimeout(() => setPromptCopied(false), 1500)
     } catch {
-      // 클립보드가 막힌 환경(비 HTTPS 등). 값은 화면에 그대로 보이니 손으로 복사한다.
+      // 클립보드가 막힌 환경(비 HTTPS 등).
     }
   }
 
@@ -338,11 +374,7 @@ export function McpInstall() {
                   <p className="mb-2 text-muted-foreground">
                     터미널에 아래 한 줄을 붙여넣으세요.
                   </p>
-                  <CopyRow
-                    text={client.command}
-                    copied={copied === client.id}
-                    onCopy={() => void copy(client.id, client.command!)}
-                  />
+                  <CopyRow text={client.command} />
                 </>
               ) : null}
 
@@ -371,11 +403,7 @@ export function McpInstall() {
 
               {client.showUrl ? (
                 <div className="mt-2.5">
-                  <CopyRow
-                    text={MCP_URL}
-                    copied={copied === client.id}
-                    onCopy={() => void copy(client.id, MCP_URL)}
-                  />
+                  <CopyRow text={MCP_URL} />
                 </div>
               ) : null}
 
@@ -398,15 +426,15 @@ export function McpInstall() {
             {/* 안내를 통째로 복사해 에이전트에게 넘기는 길. 손으로 옮기지 않아도 된다. */}
             <button
               type="button"
-              onClick={() => void copy("prompt", current.prompt)}
+              onClick={() => void copyPrompt(current.prompt)}
               className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
             >
               <HugeiconsIcon
-                icon={copied === "prompt" ? Tick02Icon : Copy01Icon}
+                icon={promptCopied ? Tick02Icon : Copy01Icon}
                 strokeWidth={2}
                 className="size-3.5"
               />
-              {copied === "prompt" ? "복사됨" : "프롬프트 복사"}
+              {promptCopied ? "복사됨" : "프롬프트 복사"}
             </button>
             <Link
               href="/intake"
@@ -426,15 +454,25 @@ export function McpInstall() {
   )
 }
 
-function CopyRow({
-  text,
-  copied,
-  onCopy,
-}: {
-  text: string
-  copied: boolean
-  onCopy: () => void
-}) {
+/**
+ * 값 한 줄과 복사 버튼.
+ *
+ * 「복사됨」 상태를 스스로 들고 있다. 부모가 들고 있으면 표 안처럼 미리 만들어
+ * 둔 트리에는 넣을 수 없어서다.
+ */
+function CopyRow({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // 클립보드가 막힌 환경(비 HTTPS 등). 값은 화면에 그대로 보이니 손으로 복사한다.
+    }
+  }
+
   return (
     <div className="flex items-stretch gap-1">
       {/* Codex 처럼 두 줄짜리 커맨드가 있어 줄바꿈은 살린다. */}
@@ -443,7 +481,7 @@ function CopyRow({
       </code>
       <button
         type="button"
-        onClick={onCopy}
+        onClick={() => void onCopy()}
         aria-label="복사"
         className="flex shrink-0 items-center gap-1 px-2 text-[10.5px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
       >
