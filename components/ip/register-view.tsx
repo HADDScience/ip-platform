@@ -1,50 +1,123 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Alert02Icon } from "@hugeicons/core-free-icons"
+import {
+  Alert02Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  FilterIcon,
+  Timer02Icon,
+} from "@hugeicons/core-free-icons"
 
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/ip/page-header"
 import { StatusBadge } from "@/components/ip/status-badge"
 import { ExportViewButton } from "@/components/ip/export-button"
+import { StageOrderDialog } from "@/components/ip/stage-order-dialog"
 import { useData } from "@/components/ip/data-provider"
+import { useAuth } from "@/components/ip/auth-gate"
 import { useToday } from "@/hooks/use-today"
 import { useQueryParam } from "@/hooks/use-search-string"
-import { detect, issuesById } from "@/lib/detect"
+import { detect, issuesById, type Issue } from "@/lib/detect"
 import { exportAll, exporterName } from "@/lib/excel"
-import { useAuth } from "@/components/ip/auth-gate"
+import { loadStageOrder, saveStageOrder, type StageOrder } from "@/lib/db"
 import { formatDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
+import type { Patent, Trademark } from "@/lib/types"
 
 /**
- * 대장 — 엑셀에 있던 열만 보여준다.
+ * IP — 보유한 상표·특허 목록.
  *
- * 등록가능성·지정상품·비고·진행 이력은 행을 펼쳤을 때만 나온다.
- * 여기서 값을 직접 고치지 않는다. 값은 「기록하기」에서 들어온다.
+ * 여기서 값을 직접 고치지 않는다. 값은 「기록하기」에서 들어오고 이 화면은 그
+ * 결과를 보여줄 뿐이다. 행을 누르면 정합성 경고·지정상품·진행 이력이 펼쳐진다.
  */
 
 const dash = (v: string | null | undefined) => (v && v !== "" ? v : "—")
 
-function IssueChip({ count }: { count: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-      <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3.5" />
-      <span className="tabular-nums">{count}</span>
-    </span>
-  )
+type Kind = "trademark" | "patent"
+type Row = Trademark | Patent
+type Dir = "asc" | "desc"
+
+/** 열 하나. `value` 는 화면에 그릴 것, `sort` 는 줄을 세울 때 쓸 것. */
+interface Column {
+  key: string
+  label: string
+  /** 정렬 기준값. null 은 항상 뒤로 보낸다 — 빈 칸이 위로 몰리면 목록이 안 읽힌다. */
+  sort: (row: Row) => string | number | null
+  className?: string
+}
+
+function trademarkColumns(): Column[] {
+  return [
+    { key: "name", label: "이름", sort: (r) => (r as Trademark).name },
+    { key: "no", label: "등록/출원번호", sort: (r) => r.regNo ?? r.appNo },
+    {
+      key: "date",
+      label: "날짜",
+      sort: (r) => r.registeredOn ?? r.filedOn ?? r.date,
+    },
+    { key: "holder", label: "보유자", sort: (r) => (r as Trademark).holder },
+    { key: "status", label: "단계", sort: (r) => r.status },
+  ]
+}
+
+function patentColumns(): Column[] {
+  return [
+    { key: "title", label: "명칭", sort: (r) => (r as Patent).title },
+    { key: "appNo", label: "출원번호", sort: (r) => r.appNo },
+    { key: "filedOn", label: "출원일", sort: (r) => r.filedOn },
+    { key: "regNo", label: "등록번호", sort: (r) => r.regNo },
+    { key: "registeredOn", label: "등록일", sort: (r) => r.registeredOn },
+    { key: "applicant", label: "출원인", sort: (r) => (r as Patent).applicant },
+    { key: "status", label: "단계", sort: (r) => r.status },
+  ]
 }
 
 export function RegisterView() {
   const today = useToday()
   const { member } = useAuth()
-  const { trademarks, patents, progress } = useData()
+  const { trademarks, patents, progress, stages } = useData()
+
   // 대시보드에서 넘어올 때의 초기 탭만 쿼리로 받는다. 이후 전환은 화면 안에서만.
   const initialTab = useQueryParam("kind", "trademark")
+  // 「IP 에서 보기」로 넘어온 건. 그 줄을 잠깐 반짝여 어디인지 알려준다.
+  const focusId = useQueryParam("focus", "")
+
   const [tab, setTab] = useState(initialTab)
   const [q, setQ] = useState("")
   const [open, setOpen] = useState<string | null>(null)
+  const [sort, setSort] = useState<{ key: string; dir: Dir } | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
+  const [orderOpen, setOrderOpen] = useState(false)
+  const [stageOrder, setStageOrder] = useState<StageOrder>({})
+  // 반짝임은 한 번만. 정렬·검색을 바꿀 때마다 다시 번쩍이면 성가시다.
+  const [flashed, setFlashed] = useState(false)
+
+  const isPatent = tab === "patent"
+  const kind: Kind = isPatent ? "patent" : "trademark"
+
+  useEffect(() => {
+    let cancelled = false
+    loadStageOrder(member.userId)
+      .then((o) => {
+        if (!cancelled) setStageOrder(o)
+      })
+      .catch(() => {
+        // 취향이 없어도 화면은 돌아야 한다. 파이프라인 순서로 떨어진다.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [member.userId])
+
+  useEffect(() => {
+    if (!focusId || flashed) return
+    const timer = window.setTimeout(() => setFlashed(true), 2600)
+    return () => window.clearTimeout(timer)
+  }, [focusId, flashed])
 
   const issues = useMemo(
     () => detect(trademarks, patents, today),
@@ -61,21 +134,78 @@ export function RegisterView() {
     return map
   }, [progress])
 
-  const isPatent = tab === "patent"
+  /** 이 종류의 단계를 파이프라인 순서대로 */
+  const pipeline = useMemo(
+    () =>
+      stages
+        .filter((s) => s.kind === kind)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((s) => s.value),
+    [stages, kind]
+  )
+
+  /** 단계 → 순위. 개인 순서가 먼저고, 거기 없는 단계는 파이프라인 순서로 뒤에 붙는다. */
+  const stageRank = useMemo(() => {
+    const mine = (stageOrder[kind] ?? []).filter((v) => pipeline.includes(v))
+    const rest = pipeline.filter((v) => !mine.includes(v))
+    const map = new Map<string, number>()
+    ;[...mine, ...rest].forEach((v, i) => map.set(v, i))
+    return map
+  }, [stageOrder, kind, pipeline])
+
+  const columns = useMemo(
+    () => (isPatent ? patentColumns() : trademarkColumns()),
+    [isPatent]
+  )
+
   const needle = q.trim().toLowerCase()
 
-  const tms = trademarks.filter(
-    (t) =>
-      !needle ||
-      `${t.name} ${t.nameKo} ${t.appNo ?? ""} ${t.regNo ?? ""}`
-        .toLowerCase()
-        .includes(needle)
-  )
-  const pts = patents.filter(
-    (p) =>
-      !needle ||
-      `${p.title} ${p.appNo ?? ""} ${p.regNo ?? ""}`.toLowerCase().includes(needle)
-  )
+  const visible = useMemo(() => {
+    const base: Row[] = isPatent ? patents : trademarks
+
+    const filtered = base.filter((row) => {
+      if (picked.length > 0 && !picked.includes(row.status)) return false
+      if (!needle) return true
+      const hay = isPatent
+        ? `${(row as Patent).title} ${row.appNo ?? ""} ${row.regNo ?? ""}`
+        : `${(row as Trademark).name} ${(row as Trademark).nameKo} ${row.appNo ?? ""} ${row.regNo ?? ""}`
+      return hay.toLowerCase().includes(needle)
+    })
+
+    if (!sort) return filtered
+
+    const column = columns.find((c) => c.key === sort.key)
+    if (!column) return filtered
+
+    const sign = sort.dir === "asc" ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      // 단계는 글자순이 아니라 사람이 정한 차례로 센다.
+      if (column.key === "status") {
+        const ra = stageRank.get(a.status) ?? Number.MAX_SAFE_INTEGER
+        const rb = stageRank.get(b.status) ?? Number.MAX_SAFE_INTEGER
+        return (ra - rb) * sign || a.id.localeCompare(b.id)
+      }
+      const va = column.sort(a)
+      const vb = column.sort(b)
+      // 빈 값은 방향과 무관하게 뒤로 보낸다.
+      if (va === null || va === "") return vb === null || vb === "" ? 0 : 1
+      if (vb === null || vb === "") return -1
+      if (typeof va === "number" && typeof vb === "number") {
+        return (va - vb) * sign
+      }
+      return String(va).localeCompare(String(vb), "ko") * sign
+    })
+  }, [isPatent, patents, trademarks, picked, needle, sort, columns, stageRank])
+
+  function toggleSort(key: string) {
+    setSort((prev) =>
+      prev?.key !== key
+        ? { key, dir: "asc" }
+        : prev.dir === "asc"
+          ? { key, dir: "desc" }
+          : null
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -104,7 +234,11 @@ export function RegisterView() {
             <button
               key={k}
               type="button"
-              onClick={() => setTab(k)}
+              onClick={() => {
+                setTab(k)
+                setSort(null)
+                setPicked([])
+              }}
               className={cn(
                 "px-3 py-1.5 text-xs font-medium transition-colors",
                 tab === k
@@ -124,6 +258,24 @@ export function RegisterView() {
           className="h-8 max-w-56 text-xs"
         />
 
+        <button
+          type="button"
+          aria-label="필터"
+          aria-expanded={showFilter}
+          onClick={() => setShowFilter((v) => !v)}
+          className={cn(
+            "flex h-8 items-center gap-1 px-2 text-xs ring-1 ring-foreground/10 transition-colors",
+            showFilter || picked.length > 0
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-4" />
+          {picked.length > 0 ? (
+            <span className="tabular-nums">{picked.length}</span>
+          ) : null}
+        </button>
+
         {issues.length > 0 ? (
           <Badge className="ml-auto bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
             확인 필요 {issues.length}건
@@ -131,58 +283,111 @@ export function RegisterView() {
         ) : null}
       </div>
 
+      {showFilter ? (
+        <div className="flex flex-wrap items-center gap-1.5 border border-border/60 p-2.5">
+          <span className="mr-1 text-[11px] text-muted-foreground">단계</span>
+          {pipeline.map((stage) => {
+            const on = picked.includes(stage)
+            return (
+              <button
+                key={stage}
+                type="button"
+                onClick={() =>
+                  setPicked((prev) =>
+                    on ? prev.filter((s) => s !== stage) : [...prev, stage]
+                  )
+                }
+                className={cn(
+                  "transition-opacity",
+                  on ? "opacity-100" : "opacity-45 hover:opacity-80"
+                )}
+              >
+                <StatusBadge status={stage} />
+              </button>
+            )
+          })}
+          {picked.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setPicked([])}
+              className="ml-auto px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              지우기
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setOrderOpen(true)}
+            className={cn(
+              "px-1.5 text-[11px] text-muted-foreground hover:text-foreground",
+              picked.length === 0 && "ml-auto"
+            )}
+          >
+            단계 순서 설정
+          </button>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto ring-1 ring-foreground/10">
         <table className="w-full min-w-[720px] text-xs">
           <thead className="bg-muted/50 text-[11px] text-muted-foreground">
-            {isPatent ? (
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">명칭</th>
-                <th className="px-3 py-2 text-left font-medium">출원번호</th>
-                <th className="px-3 py-2 text-left font-medium">출원일</th>
-                <th className="px-3 py-2 text-left font-medium">등록번호</th>
-                <th className="px-3 py-2 text-left font-medium">등록일</th>
-                <th className="px-3 py-2 text-left font-medium">출원인</th>
-                <th className="px-3 py-2 text-left font-medium">단계</th>
-                <th className="px-3 py-2 text-right font-medium"> </th>
-              </tr>
-            ) : (
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">이름</th>
-                <th className="px-3 py-2 text-left font-medium">등록/출원번호</th>
-                <th className="px-3 py-2 text-left font-medium">날짜</th>
-                <th className="px-3 py-2 text-left font-medium">보유자</th>
-                <th className="px-3 py-2 text-left font-medium">단계</th>
-                <th className="px-3 py-2 text-right font-medium"> </th>
-              </tr>
-            )}
+            <tr>
+              {columns.map((c) => {
+                const active = sort?.key === c.key
+                return (
+                  <th key={c.key} className="px-3 py-2 text-left font-medium">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(c.key)}
+                      className={cn(
+                        "flex items-center gap-0.5 transition-colors hover:text-foreground",
+                        active && "text-foreground"
+                      )}
+                    >
+                      {c.label}
+                      {active ? (
+                        <HugeiconsIcon
+                          icon={
+                            sort.dir === "asc" ? ArrowUp01Icon : ArrowDown01Icon
+                          }
+                          strokeWidth={2}
+                          className="size-3"
+                        />
+                      ) : null}
+                    </button>
+                  </th>
+                )
+              })}
+              <th className="px-3 py-2 text-right font-medium"> </th>
+            </tr>
           </thead>
 
           <tbody className="divide-y divide-border/60">
-            {(isPatent ? pts : tms).map((row) => {
-              const key = `${isPatent ? "patent" : "trademark"}:${row.id}`
+            {visible.map((row) => {
+              const key = `${kind}:${row.id}`
               const mine = byId.get(row.id) ?? []
               const expanded = open === key
-              const history = historyOf.get(key) ?? []
+              const flashing = !flashed && focusId === row.id
 
               return (
-                <>
+                <Fragment key={key}>
                   <tr
-                    key={key}
                     onClick={() => setOpen(expanded ? null : key)}
                     className={cn(
                       "cursor-pointer transition-colors hover:bg-muted/40",
-                      expanded && "bg-muted/40"
+                      expanded && "bg-muted/40",
+                      flashing && "hadd-flash"
                     )}
                   >
                     <td className="px-3 py-2">
                       <span className="font-medium">
                         {isPatent
-                          ? (row as (typeof pts)[number]).title
-                          : (row as (typeof tms)[number]).name}
+                          ? (row as Patent).title
+                          : (row as Trademark).name}
                       </span>
-                      {!isPatent && (row as (typeof tms)[number]).nameKo ? (
+                      {!isPatent && (row as Trademark).nameKo ? (
                         <span className="ml-1.5 text-muted-foreground">
-                          {(row as (typeof tms)[number]).nameKo}
+                          {(row as Trademark).nameKo}
                         </span>
                       ) : null}
                     </td>
@@ -192,17 +397,19 @@ export function RegisterView() {
                         <td className="px-3 py-2 font-mono text-[11px]">
                           {dash(row.appNo)}
                         </td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                        <td className="px-3 py-2 text-muted-foreground tabular-nums">
                           {row.filedOn ? formatDate(row.filedOn) : "—"}
                         </td>
                         <td className="px-3 py-2 font-mono text-[11px]">
                           {dash(row.regNo)}
                         </td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                          {row.registeredOn ? formatDate(row.registeredOn) : "—"}
+                        <td className="px-3 py-2 text-muted-foreground tabular-nums">
+                          {row.registeredOn
+                            ? formatDate(row.registeredOn)
+                            : "—"}
                         </td>
                         <td className="px-3 py-2">
-                          {dash((row as (typeof pts)[number]).applicant)}
+                          {dash((row as Patent).applicant)}
                         </td>
                       </>
                     ) : (
@@ -210,15 +417,17 @@ export function RegisterView() {
                         <td className="px-3 py-2 font-mono text-[11px]">
                           {dash(row.regNo ?? row.appNo)}
                         </td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                        <td className="px-3 py-2 text-muted-foreground tabular-nums">
                           {row.registeredOn || row.filedOn || row.date
                             ? formatDate(
-                                (row.registeredOn ?? row.filedOn ?? row.date) as string
+                                (row.registeredOn ??
+                                  row.filedOn ??
+                                  row.date) as string
                               )
                             : "—"}
                         </td>
                         <td className="px-3 py-2">
-                          {dash((row as (typeof tms)[number]).holder)}
+                          {dash((row as Trademark).holder)}
                         </td>
                       </>
                     )}
@@ -227,13 +436,13 @@ export function RegisterView() {
                       <StatusBadge status={row.status} />
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {mine.length > 0 ? <IssueChip count={mine.length} /> : null}
+                      <IssueChips issues={mine} />
                     </td>
                   </tr>
 
                   {expanded ? (
-                    <tr key={`${key}-detail`} className="bg-muted/20">
-                      <td colSpan={isPatent ? 8 : 6} className="px-3 py-3">
+                    <tr className="bg-muted/20">
+                      <td colSpan={columns.length + 1} className="px-3 py-3">
                         <div className="flex flex-col gap-3">
                           {mine.length > 0 ? (
                             <div className="flex flex-col gap-1.5">
@@ -259,73 +468,147 @@ export function RegisterView() {
                           <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
                             {!isPatent ? (
                               <>
-                                <Row
+                                <Detail
                                   label="지정상품"
-                                  value={(row as (typeof tms)[number]).goods}
+                                  value={(row as Trademark).goods}
                                 />
-                                <Row
+                                <Detail
                                   label="류"
                                   value={
-                                    (row as (typeof tms)[number]).classes.join(", ") ||
+                                    (row as Trademark).classes.join(", ") ||
                                     null
                                   }
                                 />
-                                <Row
+                                <Detail
                                   label="등록가능성"
                                   value={
-                                    (row as (typeof tms)[number]).probability === null
+                                    (row as Trademark).probability === null
                                       ? null
-                                      : `${(row as (typeof tms)[number]).probability}%`
+                                      : `${(row as Trademark).probability}%`
                                   }
                                 />
                               </>
                             ) : null}
-                            <Row
+                            <Detail
                               label="마지막 진행"
                               value={row.date ? formatDate(row.date) : null}
                             />
-                            <Row label="비고" value={row.note || null} />
+                            <Detail label="비고" value={row.note || null} />
                           </dl>
 
-                          <div>
-                            <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-                              진행 이력 {history.length}건
-                            </div>
-                            {history.length === 0 ? (
-                              <p className="text-muted-foreground">
-                                기록이 없습니다.
-                              </p>
-                            ) : (
-                              <ul className="flex flex-col gap-1">
-                                {history.map((h) => (
-                                  <li key={h.id} className="flex flex-wrap gap-x-2">
-                                    <span className="w-20 shrink-0 tabular-nums text-muted-foreground">
-                                      {formatDate(h.date)}
-                                    </span>
-                                    <StatusBadge status={h.stage} />
-                                    <span className="text-muted-foreground">
-                                      {h.note || h.counterpart}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
+                          <History entries={historyOf.get(key) ?? []} />
                         </div>
                       </td>
                     </tr>
                   ) : null}
-                </>
+                </Fragment>
               )
             })}
+
+            {visible.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + 1}
+                  className="px-3 py-6 text-center text-muted-foreground"
+                >
+                  조건에 맞는 건이 없습니다.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
+
+      <StageOrderDialog
+        open={orderOpen}
+        onOpenChange={setOrderOpen}
+        stages={pipeline}
+        value={stageOrder[kind] ?? []}
+        onSave={async (next) => {
+          const merged = { ...stageOrder, [kind]: next }
+          await saveStageOrder(member.userId, merged)
+          setStageOrder(merged)
+          // 순서를 고쳤으면 그 결과가 바로 보이는 것이 자연스럽다.
+          setSort({ key: "status", dir: "asc" })
+        }}
+      />
     </div>
   )
 }
 
-function Row({ label, value }: { label: string; value: string | null }) {
+/**
+ * 건별 표시. 정합성 경고와 「오래 멈춤」은 성격이 달라 따로 센다 —
+ * 하나는 값이 틀렸다는 뜻이고, 다른 하나는 값은 맞는데 시간이 지났다는 뜻이다.
+ */
+function IssueChips({ issues }: { issues: Issue[] }) {
+  const stale = issues.find((i) => i.days !== undefined)
+  const others = issues.filter((i) => i.days === undefined)
+  if (others.length === 0 && !stale) return null
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      {others.length > 0 ? (
+        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+          <HugeiconsIcon
+            icon={Alert02Icon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+          <span className="tabular-nums">{others.length}</span>
+        </span>
+      ) : null}
+      {stale ? (
+        <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+          <HugeiconsIcon
+            icon={Timer02Icon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+          <span className="tabular-nums">{stale.days}일</span>
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+function History({
+  entries,
+}: {
+  entries: {
+    id: string
+    date: string
+    stage: string
+    note: string
+    counterpart: string
+  }[]
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+        진행 이력 {entries.length}건
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-muted-foreground">기록이 없습니다.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {entries.map((h) => (
+            <li key={h.id} className="flex flex-wrap gap-x-2">
+              <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
+                {formatDate(h.date)}
+              </span>
+              <StatusBadge status={h.stage} />
+              <span className="text-muted-foreground">
+                {h.note || h.counterpart}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
   return (
     <div className="flex gap-2">

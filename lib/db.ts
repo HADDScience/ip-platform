@@ -654,3 +654,33 @@ export async function revokeMcpToken(id: string): Promise<void> {
   const { error } = await supabase.rpc("revoke_mcp_token", { p_id: id })
   check(error)
 }
+
+// ---------------------------------------------------------------------------
+// 개인 설정
+// ---------------------------------------------------------------------------
+
+/** 단계 정렬 순서. 종류별로 사람이 정한 차례. 없는 단계는 파이프라인 순서를 따른다. */
+export type StageOrder = Partial<Record<"trademark" | "patent", string[]>>
+
+export async function loadStageOrder(userId: string): Promise<StageOrder> {
+  const { data, error } = await supabase
+    .from("member_prefs")
+    .select("stage_order")
+    .eq("user_id", userId)
+    .maybeSingle()
+  check(error)
+  return ((data?.stage_order as StageOrder | undefined) ?? {}) as StageOrder
+}
+
+export async function saveStageOrder(
+  userId: string,
+  order: StageOrder
+): Promise<void> {
+  const { error } = await supabase
+    .from("member_prefs")
+    .upsert(
+      { user_id: userId, stage_order: order, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    )
+  check(error)
+}

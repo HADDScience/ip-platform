@@ -24,6 +24,8 @@ export interface Issue {
   detail: string
   /** 고치면 되는 필드 — 수정창이 어디를 열지 결정한다 */
   field?: "appNo" | "regNo" | "filedOn" | "registeredOn" | "status" | "name" | "holder"
+  /** 「오래 멈춤」에만 있는 경과일. 목록에서 숫자로 보여준다. */
+  days?: number
 }
 
 /** 출원번호 앞 두 자리가 권리 종류다: 10 특허 · 20 실용신안 · 30 디자인 · 40 상표 */
@@ -220,18 +222,33 @@ export function detect(
       })
     }
 
-    // 출원번호를 등록번호 칸에 넣은 경우. 엑셀이 「등록/출원번호」 한 칸이라 흔하다.
-    if (r.regNo && APP_NO.test(r.regNo)) {
+    /**
+     * 등록번호 칸에 출원번호가 들어 있는 경우.
+     *
+     * 대장의 「등록/출원번호」는 **한 칸**이다. 등록 전에는 출원번호를, 등록
+     * 뒤에는 등록번호를 적는 자리라서, 아직 등록되지 않은 건에 출원번호가
+     * 들어 있는 것은 잘못이 아니라 정상이다. 그것까지 잡으면 출원·심사 중인
+     * 건이 전부 빨간 경고로 뜬다.
+     *
+     * 잘못이라고 말할 수 있는 것은 **단계가 「등록」인데도** 그 칸이 여전히
+     * 출원번호 형태일 때뿐이다. 그때는 등록번호를 못 받아 적은 것이다.
+     */
+    if (r.regNo && APP_NO.test(r.regNo) && r.status === "등록") {
       out.push({
         key: `wrong-col:${r.id}`,
         level: "error",
         kind: r.kind,
         ids: [r.id],
-        title: "출원번호가 등록번호 칸에 들어 있습니다",
+        title: "등록인데 번호가 아직 출원번호입니다",
         detail: `${r.regNo} 는 출원번호 형태입니다 (등록번호는 NN-NNNNNNN).`,
         field: "regNo",
       })
-    } else if (r.regNo && NUM_PREFIX.test(r.regNo) && !REG_NO.test(r.regNo)) {
+    } else if (
+      r.regNo &&
+      !APP_NO.test(r.regNo) &&
+      NUM_PREFIX.test(r.regNo) &&
+      !REG_NO.test(r.regNo)
+    ) {
       out.push({
         key: `shape-reg:${r.id}`,
         level: "warn",
@@ -344,6 +361,7 @@ export function detect(
         ids: [r.id],
         title: `${days}일째 진행이 없습니다`,
         detail: `마지막 진행 ${r.refDate} · 단계 「${r.status}」`,
+        days,
       })
     }
   }

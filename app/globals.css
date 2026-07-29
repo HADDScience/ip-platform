@@ -127,3 +127,78 @@
     @apply font-sans;
     }
 }
+/*
+ * 「IP 에서 보기」로 넘어왔을 때 해당 행을 잠깐 반짝인다.
+ * 목록이 길어 어느 줄이 문제인지 눈으로 찾기 어렵기 때문이다.
+ * 자동으로 펼치지는 않는다 — 어디인지만 알려주고 여는 것은 사람이 정한다.
+ *
+ * 테두리를 tr 에 주지 않고 각 td 에 inset 그림자로 그린다. 표는 기본이
+ * border-collapse 라 tr 의 box-shadow 가 브라우저마다 다르게 잘린다.
+ */
+@keyframes hadd-flash {
+  0%,
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  15%,
+  55% {
+    background-color: color-mix(in oklab, var(--color-amber-500) 14%, transparent);
+    box-shadow:
+      inset 0 2px 0 0 var(--color-amber-500),
+      inset 0 -2px 0 0 var(--color-amber-500);
+  }
+}
+
+.hadd-flash > td {
+  animation: hadd-flash 2.4s ease-in-out 1;
+}
+
+/* 양 끝을 막아 테두리가 닫히게 한다. */
+@keyframes hadd-flash-left {
+  0%,
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  15%,
+  55% {
+    background-color: color-mix(in oklab, var(--color-amber-500) 14%, transparent);
+    box-shadow:
+      inset 0 2px 0 0 var(--color-amber-500),
+      inset 0 -2px 0 0 var(--color-amber-500),
+      inset 2px 0 0 0 var(--color-amber-500);
+  }
+}
+
+@keyframes hadd-flash-right {
+  0%,
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  15%,
+  55% {
+    background-color: color-mix(in oklab, var(--color-amber-500) 14%, transparent);
+    box-shadow:
+      inset 0 2px 0 0 var(--color-amber-500),
+      inset 0 -2px 0 0 var(--color-amber-500),
+      inset -2px 0 0 0 var(--color-amber-500);
+  }
+}
+
+.hadd-flash > td:first-child {
+  animation-name: hadd-flash-left;
+}
+
+.hadd-flash > td:last-child {
+  animation-name: hadd-flash-right;
+}
+
+/* 움직임을 줄이도록 설정한 사람에게는 색만 잠깐 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .hadd-flash > td {
+    animation: none;
+    background-color: color-mix(in oklab, var(--color-amber-500) 14%, transparent);
+  }
+}

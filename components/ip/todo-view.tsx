@@ -189,7 +189,8 @@ export function TodoView() {
                 <span className="font-medium">{i.title}</span>
                 <span className="min-w-0 flex-1 text-muted-foreground">{i.detail}</span>
                 <Link
-                  href={`/register/?kind=${i.kind}`}
+                  // 어느 줄인지 함께 넘긴다. IP 화면이 그 줄을 잠깐 반짝여 준다.
+                  href={`/register/?kind=${i.kind}&focus=${i.ids[0]}`}
                   className="shrink-0 text-primary hover:underline"
                 >
                   IP에서 보기
