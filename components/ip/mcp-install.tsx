@@ -29,14 +29,18 @@ import { McpTokenPanel } from "@/components/ip/mcp-token-panel"
  * 쓰는 도구에 붙이게 한다.
  *
  * 원격(HTTP) MCP 하나로 통일한 이유는 브라우저에서 LLM 을 쓰는 사람 때문이다.
- * stdio 로 만들면 CLI 에서만 되지만, HTTP 로 두면 claude.ai·ChatGPT 의 커스텀
- * 커넥터로 같은 서버를 그대로 붙일 수 있다. 도구가 달라도 붙는 서버는 하나다.
+ * stdio 로 만들면 CLI 에서만 되지만, HTTP 로 두면 ChatGPT 의 커스텀 커넥터로
+ * 같은 서버를 그대로 붙일 수 있다. 도구가 달라도 붙는 서버는 하나다.
  *
  * 붙이는 방법은 도구마다 세 갈래로 갈린다.
  *  * 딥링크가 있는 편집기(Cursor·VS Code) — 버튼 한 번
  *  * CLI(Claude Code·Codex·Gemini) — 커맨드 한 줄
- *  * 웹(claude.ai·ChatGPT) — 설정에서 손으로 추가
+ *  * 웹(ChatGPT) — 설정에서 손으로 추가
  * 그래서 도구별 탭으로 나눈다. 사람은 자기가 쓰는 도구 하나만 알면 된다.
+ *
+ * claude.ai 만 예외로 잠가 둔다. 커넥터가 인가 서버 주소를 호스트 루트에서만
+ * 찾는데 우리 서버는 Supabase 함수 경로 아래라 그 자리를 쓸 수 없다. 절차를
+ * 적어 두면 따라 하다 실패할 뿐이라, 탭을 막고 이유만 툴팁으로 남긴다.
  */
 
 /** 서버 주소. 값 자체는 브라우저 번들에 이미 들어 있는 공개 값이다. */
@@ -57,6 +61,8 @@ interface Client {
   steps?: React.ReactNode
   /** 커맨드 대신 주소만 필요할 때 */
   showUrl?: boolean
+  /** 못 쓰는 도구라면 그 이유. 탭이 잠기고 이 글이 툴팁으로 붙는다. */
+  disabled?: string
   note?: React.ReactNode
   /** 「프롬프트 복사」가 내보낼 글. 에이전트가 그대로 읽고 실행할 수 있어야 한다. */
   prompt: string
@@ -159,44 +165,14 @@ function buildClients(token: string | null): Client[] {
         "MCP: Add Server 로 추가한 뒤 도구 목록이 보이는지 확인해 줘.",
       ].join("\n"),
     },
+    // claude.ai 웹 커넥터는 붙지 않는다. 절차를 적어 두면 따라 하다 실패할 뿐이라
+    // 탭 자체를 잠근다. 대신 왜 못 쓰는지는 손이 닿는 자리(툴팁)에 남긴다.
     {
       id: "claude-ai",
       name: "claude.ai",
-      showUrl: true,
-      steps: (
-        <div className="flex flex-col gap-2">
-          <p className="text-foreground">
-            <b>지금은 붙지 않습니다.</b> claude.ai 커넥터 쪽 문제이고 우리 서버
-            문제가 아닙니다.
-          </p>
-          <p>
-            커넥터는 인가 서버 주소를 <b>호스트 루트</b>(
-            <code className="bg-muted px-1">/.well-known/…</code>)에서만
-            찾습니다. 우리 서버는 Supabase 함수 경로 아래에 있어 그 자리를 쓸 수
-            없고, Supabase 는 그 경로에 401 을 돌려주어 커넥터가 더 시도하지
-            않고 멈춥니다. 규격대로 401 응답에 주소를 적어 보내지만 그것도 보지
-            않습니다(Anthropic claude-ai-mcp #341 · #367 · #376 로 보고된 문제).
-          </p>
-          <p>
-            <b>Claude 를 쓰신다면 「Claude Code」 탭</b>의 커맨드 한 줄로 붙이면
-            됩니다. Claude Desktop 도 같은 방식입니다. ChatGPT 는 OAuth 로 정상
-            연결됩니다.
-          </p>
-          <p className="text-muted-foreground">
-            커넥터가 고쳐지면 아래 주소를 그대로 쓰면 됩니다. 서버는 바꿀 것이
-            없습니다.
-          </p>
-        </div>
-      ),
-      note: "우리 서버를 우리가 뿌리째 가진 주소(예: mcp.haddscience.com)로 옮기면 루트를 쓸 수 있어 가능성이 생깁니다. 다만 같은 증상이 여러 건 보고돼 있어 옮긴다고 반드시 붙는다는 보장은 없습니다.",
-      prompt: [
-        "claude.ai 웹 커넥터는 현재 이 서버에 붙지 않는다.",
-        "커넥터가 인가 서버 메타데이터를 호스트 루트에서만 찾는데, 이 서버는",
-        "Supabase 함수 경로 아래에 있어 루트를 쓸 수 없다.",
-        "",
-        "Claude 를 쓴다면 Claude Code 로 붙이면 된다:",
-        `claude mcp add --transport http ${SERVER_NAME} ${MCP_URL} --header "Authorization: Bearer ${secret}"`,
-      ].join("\n"),
+      disabled:
+        "claude.ai 웹 커넥터에는 붙지 않습니다. 커넥터가 인가 서버 주소를 호스트 루트(/.well-known/…)에서만 찾는데, 이 서버는 Supabase 함수 경로 아래에 있어 그 자리를 쓸 수 없습니다 (Anthropic claude-ai-mcp #341·#367·#376 로 보고된 문제). Claude 를 쓰신다면 「Claude Code」 탭의 커맨드로 붙이면 됩니다 — Claude Desktop 도 같은 방식입니다.",
+      prompt: "",
     },
     {
       id: "chatgpt",
@@ -332,64 +308,80 @@ export function McpInstall() {
           className="min-h-0 flex-1"
         >
           <TabsList className="px-4">
-            {clients.map((client) => (
-              <TabsTab key={client.id} value={client.id}>
-                {client.name}
-              </TabsTab>
-            ))}
+            {clients.map((client) =>
+              client.disabled ? (
+                // 이유는 감싼 쪽이 든다. 잠긴 버튼은 브라우저가 hover 를 삼켜서
+                // 버튼에 title 을 걸면 툴팁이 뜨지 않는다.
+                <span
+                  key={client.id}
+                  title={client.disabled}
+                  className="inline-flex"
+                >
+                  <TabsTab value={client.id} disabled>
+                    {client.name}
+                  </TabsTab>
+                </span>
+              ) : (
+                <TabsTab key={client.id} value={client.id}>
+                  {client.name}
+                </TabsTab>
+              )
+            )}
           </TabsList>
 
-          {clients.map((client) => (
-            <TabsPanel
-              key={client.id}
-              value={client.id}
-              className="min-h-0 flex-1 overflow-y-auto p-4"
-            >
-              {client.command ? (
-                <>
-                  <p className="mb-2 text-muted-foreground">
-                    터미널에 아래 한 줄을 붙여넣으세요.
+          {clients
+            .filter((client) => !client.disabled)
+            .map((client) => (
+              <TabsPanel
+                key={client.id}
+                value={client.id}
+                className="min-h-0 flex-1 overflow-y-auto p-4"
+              >
+                {client.command ? (
+                  <>
+                    <p className="mb-2 text-muted-foreground">
+                      터미널에 아래 한 줄을 붙여넣으세요.
+                    </p>
+                    <CopyRow text={client.command} />
+                  </>
+                ) : null}
+
+                {client.install ? (
+                  <>
+                    <p className="mb-2 text-muted-foreground">
+                      버튼 한 번으로 설치됩니다.
+                    </p>
+                    <a
+                      href={client.install}
+                      className="inline-flex items-center gap-1.5 bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                    >
+                      <HugeiconsIcon
+                        icon={LinkSquare02Icon}
+                        strokeWidth={2}
+                        className="size-3.5"
+                      />
+                      {client.name} 에 설치
+                    </a>
+                  </>
+                ) : null}
+
+                {client.steps ? (
+                  <div className="text-muted-foreground">{client.steps}</div>
+                ) : null}
+
+                {client.showUrl ? (
+                  <div className="mt-2.5">
+                    <CopyRow text={MCP_URL} />
+                  </div>
+                ) : null}
+
+                {client.note ? (
+                  <p className="mt-2.5 text-[11px]/relaxed text-muted-foreground">
+                    {client.note}
                   </p>
-                  <CopyRow text={client.command} />
-                </>
-              ) : null}
-
-              {client.install ? (
-                <>
-                  <p className="mb-2 text-muted-foreground">
-                    버튼 한 번으로 설치됩니다.
-                  </p>
-                  <a
-                    href={client.install}
-                    className="inline-flex items-center gap-1.5 bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-                  >
-                    <HugeiconsIcon
-                      icon={LinkSquare02Icon}
-                      strokeWidth={2}
-                      className="size-3.5"
-                    />
-                    {client.name} 에 설치
-                  </a>
-                </>
-              ) : null}
-
-              {client.steps ? (
-                <div className="text-muted-foreground">{client.steps}</div>
-              ) : null}
-
-              {client.showUrl ? (
-                <div className="mt-2.5">
-                  <CopyRow text={MCP_URL} />
-                </div>
-              ) : null}
-
-              {client.note ? (
-                <p className="mt-2.5 text-[11px]/relaxed text-muted-foreground">
-                  {client.note}
-                </p>
-              ) : null}
-            </TabsPanel>
-          ))}
+                ) : null}
+              </TabsPanel>
+            ))}
         </Tabs>
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/60 p-4">
