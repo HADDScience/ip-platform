@@ -66,6 +66,8 @@ function blank(date: string): ProgressEntry {
     note: "",
     source: "manual",
     raw: null,
+    // 아직 저장되지 않은 초안이라 적힌 시각이 없다. 서버가 채운다.
+    createdAt: "",
   }
 }
 

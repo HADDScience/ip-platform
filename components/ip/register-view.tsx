@@ -543,6 +543,11 @@ export function RegisterView() {
                           <ProgressHistory
                             entries={historyOf.get(key) ?? []}
                             opening={opening.get(key)}
+                            title={
+                              isPatent
+                                ? (row as Patent).title
+                                : (row as Trademark).name
+                            }
                           />
                         </div>
                       </td>

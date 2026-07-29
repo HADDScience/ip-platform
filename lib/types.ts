@@ -114,10 +114,34 @@ export type ProgressSource = "manual" | "mail" | "excel" | "edit"
  * 지금 실제로 보유한 것은 상표·특허뿐이라 나머지는 자리만 잡아 둔다.
  */
 export const RIGHT_KINDS = [
-  { value: "trademark", label: "상표", numPrefix: "40", idPrefix: "TM", live: true },
-  { value: "patent", label: "특허", numPrefix: "10", idPrefix: "PT", live: true },
-  { value: "utility", label: "실용신안", numPrefix: "20", idPrefix: "UM", live: false },
-  { value: "design", label: "디자인", numPrefix: "30", idPrefix: "DS", live: false },
+  {
+    value: "trademark",
+    label: "상표",
+    numPrefix: "40",
+    idPrefix: "TM",
+    live: true,
+  },
+  {
+    value: "patent",
+    label: "특허",
+    numPrefix: "10",
+    idPrefix: "PT",
+    live: true,
+  },
+  {
+    value: "utility",
+    label: "실용신안",
+    numPrefix: "20",
+    idPrefix: "UM",
+    live: false,
+  },
+  {
+    value: "design",
+    label: "디자인",
+    numPrefix: "30",
+    idPrefix: "DS",
+    live: false,
+  },
 ] as const
 
 export type RightKind = (typeof RIGHT_KINDS)[number]["value"]
@@ -147,6 +171,8 @@ export interface ProgressEntry {
   note: string
   source: ProgressSource
   raw: string | null
+  /** 적힌 시각. 같은 날 기록끼리 순서를 가르는 데만 쓴다. */
+  createdAt: string
 }
 
 export interface Communication {

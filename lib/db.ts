@@ -73,6 +73,7 @@ interface ProgressRow {
   note: string
   source: string
   raw: string | null
+  created_at: string
 }
 
 interface CommunicationRow {
@@ -165,6 +166,7 @@ const toProgress = (r: ProgressRow): ProgressEntry => ({
   note: r.note ?? "",
   source: r.source as ProgressEntry["source"],
   raw: r.raw,
+  createdAt: r.created_at,
 })
 
 const toCommunication = (r: CommunicationRow): Communication => ({
@@ -254,10 +256,13 @@ export async function fetchSnapshot(): Promise<Snapshot> {
   const [tm, pt, prog, comm, act, flags, status, meta] = await Promise.all([
     supabase.from("trademarks").select("*").order("id"),
     supabase.from("patents").select("*").order("id"),
+    // 같은 날 기록이 여럿이면 날짜만으로는 순서가 정해지지 않는다. 적은 순서로
+    // 갈라 준다 — 아니면 새로고침할 때마다 줄이 뒤바뀐다.
     supabase
       .from("progress_entries")
       .select("*")
-      .order("occurred_on", { ascending: false }),
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false }),
     supabase
       .from("communications")
       .select("*, communication_links(entity_kind, entity_id)")
@@ -691,16 +696,14 @@ export async function saveStageOrder(
   userId: string,
   order: StageOrder
 ): Promise<void> {
-  const { error } = await supabase
-    .from("member_prefs")
-    .upsert(
-      {
-        user_id: userId,
-        stage_order: order,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    )
+  const { error } = await supabase.from("member_prefs").upsert(
+    {
+      user_id: userId,
+      stage_order: order,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  )
   check(error)
 }
 

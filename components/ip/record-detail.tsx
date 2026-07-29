@@ -4,6 +4,14 @@ import { useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { StatusBadge } from "@/components/ip/status-badge"
 import { formatDate } from "@/lib/date"
@@ -224,102 +232,174 @@ const SOURCE_LABEL: Record<string, string> = {
   edit: "값 정정",
 }
 
+/** 펼친 줄 안에 그대로 두는 기록 수. 넘치면 나머지는 모달로 민다. */
+const INLINE_LIMIT = 3
+
 /**
  * 진행 이력 — 기록 한 줄에 담긴 것을 전부 보여준다.
  *
  * 요약만 보이면 "무슨 일이 있었는지"를 알 수 없어 결국 DB 를 열어보게 된다.
  * 값이 바뀐 칸은 무엇이 무엇으로 바뀌었는지까지 적는다.
+ *
+ * 다만 오래 굴러간 건은 이력이 길어져, 표 한가운데서 다 펼치면 아래 건들이
+ * 화면 밖으로 밀려난다. 그래서 최근 몇 건만 자리에 두고 전체는 모달에서 본다 —
+ * 읽는 자리와 훑는 자리를 나눈다.
  */
 export function ProgressHistory({
   entries,
   opening,
+  title,
 }: {
   entries: ProgressEntry[]
   /** 이 건을 이어받은 시점. 기록이 아니라 출발선이라 다른 모양으로 놓는다. */
   opening?: OpeningState
+  /** 모달 제목에 쓸 건 이름 */
+  title?: string
 }) {
-  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date))
+  const sorted = sortHistory(entries)
+  const overflow = sorted.length > INLINE_LIMIT
 
   return (
     <div>
-      <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-        진행 이력 {sorted.length}건
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          진행 이력 {sorted.length}건
+        </span>
+        {overflow ? (
+          <Dialog>
+            <DialogTrigger
+              onClick={(e) => e.stopPropagation()}
+              className="px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
+            >
+              전체 보기
+            </DialogTrigger>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
+              <DialogHeader className="pr-10">
+                <DialogTitle>진행 이력{title ? ` · ${title}` : ""}</DialogTitle>
+                <DialogDescription>
+                  최신 기록이 위입니다. 모두 {sorted.length}건.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <HistoryList entries={sorted} opening={opening} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
 
       {sorted.length === 0 && !opening ? (
         <p className="text-muted-foreground">기록이 없습니다.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border/60">
-          {sorted.map((h) => (
-            <li key={h.id} className="flex flex-col gap-1 py-2 first:pt-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
-                  {formatDate(h.date)}
-                </span>
-                <StatusBadge status={h.stage} />
-                {h.direction ? (
-                  <Badge className="bg-muted text-muted-foreground">
-                    {h.direction}
-                  </Badge>
-                ) : null}
-                {h.counterpart ? (
-                  <span className="text-muted-foreground">{h.counterpart}</span>
-                ) : null}
-                <Badge
-                  className={cn(
-                    "ml-auto",
-                    h.source === "edit"
-                      ? "bg-sky-500/15 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {SOURCE_LABEL[h.source] ?? h.source}
-                </Badge>
-              </div>
-
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-20 text-[11px] text-muted-foreground">
-                {h.nextTurn !== "none" ? (
-                  <span>다음 차례 · {NEXT_TURN_LABEL[h.nextTurn]}</span>
-                ) : null}
-                {h.dueOn ? <span>기한 · {formatDate(h.dueOn)}</span> : null}
-                {h.name ? <span>이름 → {h.name}</span> : null}
-                {h.holder ? <span>보유자 → {h.holder}</span> : null}
-                {h.appNo ? <span>출원번호 → {h.appNo}</span> : null}
-                {h.regNo ? <span>등록번호 → {h.regNo}</span> : null}
-                {h.probability !== null ? (
-                  <span>등록가능성 · {h.probability}%</span>
-                ) : null}
-              </div>
-
-              {h.note ? (
-                <p className="pl-20 whitespace-pre-wrap text-foreground">
-                  {h.note}
-                </p>
-              ) : null}
-            </li>
-          ))}
-
-          {opening ? (
-            <li className="flex flex-col gap-1 border-t-2 border-dashed border-border py-2">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
-                  {formatDate(opening.takenOverOn)}
-                </span>
-                <span className="font-medium">여기서부터 이어받음</span>
-                <StatusBadge status={opening.stage} />
-              </div>
-              <p className="pl-20 text-[11px] text-muted-foreground">
-                {opening.sourceNote}. 이 줄은 사건이 아니라 <b>출발선</b>입니다
-                — 우리가 이 상태를 넘겨받은 날이지, 그날 무슨 일이 있었다는 뜻이
-                아닙니다.
-                {opening.refDate
-                  ? ` 넘겨받을 당시 마지막 진행일은 ${formatDate(opening.refDate)} 였습니다.`
-                  : " 넘겨받을 당시 마지막 진행일은 비어 있었습니다."}
-              </p>
-            </li>
+        <>
+          <HistoryList
+            entries={overflow ? sorted.slice(0, INLINE_LIMIT) : sorted}
+            // 출발선은 이력의 맨 끝이다. 잘라 보여줄 때 붙이면 중간이 빠진 채
+            // 끝만 보여 거짓말이 된다.
+            opening={overflow ? undefined : opening}
+          />
+          {overflow ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              오래된 {sorted.length - INLINE_LIMIT}건은 「전체 보기」에서 볼 수
+              있습니다.
+            </p>
           ) : null}
-        </ul>
+        </>
       )}
     </div>
+  )
+}
+
+/**
+ * 최신이 위.
+ *
+ * 날짜만으로는 같은 날 기록의 순서가 정해지지 않아, 적힌 시각으로 한 번 더
+ * 가른다. 정정은 대개 원본 기록 뒤에 붙으므로 이 순서가 실제 사건 순서다.
+ */
+function sortHistory(entries: ProgressEntry[]): ProgressEntry[] {
+  return [...entries].sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
+  )
+}
+
+function HistoryList({
+  entries,
+  opening,
+}: {
+  entries: ProgressEntry[]
+  opening?: OpeningState
+}) {
+  return (
+    <ul className="flex flex-col divide-y divide-border/60">
+      {entries.map((h) => (
+        <li key={h.id} className="flex flex-col gap-1 py-2 first:pt-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
+              {formatDate(h.date)}
+            </span>
+            <StatusBadge status={h.stage} />
+            {h.direction ? (
+              <Badge className="bg-muted text-muted-foreground">
+                {h.direction}
+              </Badge>
+            ) : null}
+            {h.counterpart ? (
+              <span className="text-muted-foreground">{h.counterpart}</span>
+            ) : null}
+            <Badge
+              className={cn(
+                "ml-auto",
+                h.source === "edit"
+                  ? "bg-sky-500/15 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {SOURCE_LABEL[h.source] ?? h.source}
+            </Badge>
+          </div>
+
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-20 text-[11px] text-muted-foreground">
+            {h.nextTurn !== "none" ? (
+              <span>다음 차례 · {NEXT_TURN_LABEL[h.nextTurn]}</span>
+            ) : null}
+            {h.dueOn ? <span>기한 · {formatDate(h.dueOn)}</span> : null}
+            {h.name ? <span>이름 → {h.name}</span> : null}
+            {h.holder ? <span>보유자 → {h.holder}</span> : null}
+            {h.appNo ? <span>출원번호 → {h.appNo}</span> : null}
+            {h.regNo ? <span>등록번호 → {h.regNo}</span> : null}
+            {h.probability !== null ? (
+              <span>등록가능성 · {h.probability}%</span>
+            ) : null}
+          </div>
+
+          {h.note ? (
+            <p className="pl-20 whitespace-pre-wrap text-foreground">
+              {h.note}
+            </p>
+          ) : null}
+        </li>
+      ))}
+
+      {opening ? (
+        <li className="flex flex-col gap-1 border-t-2 border-dashed border-border py-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
+              {formatDate(opening.takenOverOn)}
+            </span>
+            <span className="font-medium">여기서부터 이어받음</span>
+            <StatusBadge status={opening.stage} />
+          </div>
+          <p className="pl-20 text-[11px] text-muted-foreground">
+            {opening.sourceNote}. 이 줄은 사건이 아니라 <b>출발선</b>입니다 —
+            우리가 이 상태를 넘겨받은 날이지, 그날 무슨 일이 있었다는 뜻이
+            아닙니다.
+            {opening.refDate
+              ? ` 넘겨받을 당시 마지막 진행일은 ${formatDate(opening.refDate)} 였습니다.`
+              : " 넘겨받을 당시 마지막 진행일은 비어 있었습니다."}
+          </p>
+        </li>
+      ) : null}
+    </ul>
   )
 }
