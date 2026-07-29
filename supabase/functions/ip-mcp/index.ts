@@ -39,21 +39,42 @@ interface Caller {
   role: "owner" | "editor" | "viewer"
 }
 
-/** 토큰 원문 → 사람. 원문은 저장돼 있지 않으므로 해시로 찾는다. */
+/** 문자열의 sha256(hex). 토큰 원문은 어디에도 저장하지 않는다. */
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  )
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+}
+
+/** URL-safe 난수. 토큰·코드·client_id 에 두루 쓴다. */
+function randomToken(bytes = 32): string {
+  const buf = new Uint8Array(bytes)
+  crypto.getRandomValues(buf)
+  return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+/**
+ * 토큰 원문 → 사람.
+ *
+ * 두 갈래를 모두 받는다.
+ *  * `hadd_…` 개인 토큰 — CLI 는 커맨드 한 줄이 간단하다.
+ *  * OAuth 액세스 토큰 — ChatGPT 처럼 정적 토큰을 못 보내는 클라이언트용.
+ */
 async function resolveCaller(request: Request): Promise<Caller | null> {
   const header = request.headers.get("authorization") ?? ""
   const token = header.replace(/^Bearer\s+/i, "").trim()
-  if (!token.startsWith("hadd_")) return null
+  if (!token) return null
 
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(token)
-  )
-  const hash = [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
+  const hash = await sha256(token)
+  const rpc = token.startsWith("hadd_")
+    ? "resolve_mcp_token"
+    : "resolve_oauth_token"
 
-  const { data, error } = await db.rpc("resolve_mcp_token", { p_hash: hash })
+  const { data, error } = await db.rpc(rpc, { p_hash: hash })
   if (error || !data || data.length === 0) return null
 
   const row = data[0] as {
@@ -366,6 +387,287 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 }
 
+// ---------------------------------------------------------------------------
+// OAuth — ChatGPT 처럼 정적 토큰을 못 보내는 클라이언트를 위해
+// ---------------------------------------------------------------------------
+
+/**
+ * 이 함수의 공개 주소. 발급자(issuer)이자 보호 자원(resource) 식별자다.
+ *
+ * `.well-known` 을 호스트 루트에 둘 수 없어서(Supabase 가 쓰는 자리다) 함수
+ * 경로 아래에 둔다. 규격은 401 의 `WWW-Authenticate` 에 적힌 주소를 클라이언트가
+ * 그대로 쓰도록 정하고 있으므로, 그 헤더로 여기를 가리켜 준다.
+ */
+const BASE = `${Deno.env.get("SUPABASE_URL")}/functions/v1/ip-mcp`
+
+/** 승인 화면. 허브 로그인 세션이 살아 있는 웹앱 쪽에서 띄운다. */
+const APPROVE_PAGE = "https://haddscience.github.io/ip-platform/authorize/"
+
+const ACCESS_TTL_SEC = 60 * 60 * 8
+
+function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...CORS, ...extra },
+  })
+}
+
+/** RFC 9728 — 이 자원이 어느 인가 서버를 믿는지 */
+function protectedResourceMetadata() {
+  return json({
+    resource: BASE,
+    authorization_servers: [BASE],
+    bearer_methods_supported: ["header"],
+  })
+}
+
+/** RFC 8414 — 인가 서버가 무엇을 할 수 있는지 */
+function authorizationServerMetadata() {
+  return json({
+    issuer: BASE,
+    authorization_endpoint: `${BASE}/authorize`,
+    token_endpoint: `${BASE}/token`,
+    registration_endpoint: `${BASE}/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    // 공개 클라이언트만 받는다. 비밀을 나눠 가질 상대가 아니다.
+    token_endpoint_auth_methods_supported: ["none"],
+    code_challenge_methods_supported: ["S256"],
+    scopes_supported: ["mcp"],
+  })
+}
+
+/** RFC 7591 — 클라이언트가 스스로 등록한다 */
+async function registerClient(request: Request): Promise<Response> {
+  let body: { client_name?: string; redirect_uris?: string[] }
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: "invalid_client_metadata" }, 400)
+  }
+
+  const uris = body.redirect_uris ?? []
+  if (uris.length === 0) {
+    return json(
+      { error: "invalid_redirect_uri", error_description: "redirect_uris 가 필요합니다." },
+      400
+    )
+  }
+
+  const clientId = `mcp_${randomToken(16)}`
+  const { error } = await db.from("oauth_clients").insert({
+    client_id: clientId,
+    client_name: body.client_name ?? "",
+    redirect_uris: uris,
+  })
+  if (error) return json({ error: "server_error", error_description: error.message }, 500)
+
+  return json(
+    {
+      client_id: clientId,
+      client_name: body.client_name ?? "",
+      redirect_uris: uris,
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    },
+    201
+  )
+}
+
+/** 사용자를 승인 화면으로 보낸다. 로그인 여부는 그 화면이 판단한다. */
+async function authorize(url: URL): Promise<Response> {
+  const clientId = url.searchParams.get("client_id") ?? ""
+  const redirectUri = url.searchParams.get("redirect_uri") ?? ""
+  const challenge = url.searchParams.get("code_challenge") ?? ""
+  const method = url.searchParams.get("code_challenge_method") ?? ""
+  const state = url.searchParams.get("state")
+
+  const { data: client } = await db
+    .from("oauth_clients")
+    .select("client_id, redirect_uris")
+    .eq("client_id", clientId)
+    .maybeSingle()
+
+  // 클라이언트나 redirect_uri 가 수상하면 그쪽으로 되돌려 보내지 않는다.
+  // 공격자가 지정한 주소로 오류를 흘리면 그것이 곧 통로가 된다.
+  if (!client) return new Response("알 수 없는 client_id 입니다.", { status: 400 })
+  if (!(client.redirect_uris as string[]).includes(redirectUri)) {
+    return new Response("등록되지 않은 redirect_uri 입니다.", { status: 400 })
+  }
+  if (method !== "S256" || !challenge) {
+    return new Response("PKCE(S256)가 필요합니다.", { status: 400 })
+  }
+
+  const { data: req, error } = await db
+    .from("oauth_requests")
+    .insert({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      state,
+      code_challenge: challenge,
+      resource: url.searchParams.get("resource"),
+      scope: url.searchParams.get("scope") ?? "",
+    })
+    .select("id")
+    .single()
+  if (error) return new Response(error.message, { status: 500 })
+
+  return Response.redirect(`${APPROVE_PAGE}?req=${req.id}`, 302)
+}
+
+/**
+ * 승인 화면이 부른다. 사람 확인은 그 사람의 Supabase 세션으로 한다 —
+ * 우리가 로그인 화면을 새로 만들지 않아도 되는 이유다.
+ */
+async function approve(request: Request): Promise<Response> {
+  const jwt = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")
+  const { data: userData } = await db.auth.getUser(jwt)
+  const user = userData?.user
+  if (!user) return json({ error: "로그인이 필요합니다." }, 401)
+
+  const { data: member } = await db
+    .from("members")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!member) return json({ error: "승인된 멤버가 아닙니다." }, 403)
+
+  let body: { req?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: "잘못된 요청입니다." }, 400)
+  }
+
+  const { data: req } = await db
+    .from("oauth_requests")
+    .select("*")
+    .eq("id", body.req ?? "")
+    .maybeSingle()
+  if (!req) return json({ error: "만료되었거나 없는 요청입니다." }, 400)
+  if (new Date(req.expires_at as string) < new Date()) {
+    return json({ error: "요청이 만료되었습니다. 처음부터 다시 시도하세요." }, 400)
+  }
+
+  const code = randomToken(32)
+  const { error } = await db.from("oauth_codes").insert({
+    code_hash: await sha256(code),
+    client_id: req.client_id,
+    user_id: user.id,
+    redirect_uri: req.redirect_uri,
+    code_challenge: req.code_challenge,
+    resource: req.resource,
+  })
+  if (error) return json({ error: error.message }, 500)
+
+  await db.from("oauth_requests").delete().eq("id", req.id)
+
+  const target = new URL(req.redirect_uri as string)
+  target.searchParams.set("code", code)
+  if (req.state) target.searchParams.set("state", req.state as string)
+  return json({ redirect: target.toString() })
+}
+
+/** 승인 화면이 "무엇을 승인하는지" 보여주려고 부른다. */
+async function requestInfo(url: URL): Promise<Response> {
+  const { data: req } = await db
+    .from("oauth_requests")
+    .select("id, client_id, expires_at")
+    .eq("id", url.searchParams.get("req") ?? "")
+    .maybeSingle()
+  if (!req) return json({ error: "만료되었거나 없는 요청입니다." }, 404)
+
+  const { data: client } = await db
+    .from("oauth_clients")
+    .select("client_name")
+    .eq("client_id", req.client_id)
+    .maybeSingle()
+
+  return json({
+    clientName: (client?.client_name as string) || (req.client_id as string),
+    expiresAt: req.expires_at,
+  })
+}
+
+/** 인가 코드·갱신 토큰 → 액세스 토큰 */
+async function issueToken(request: Request): Promise<Response> {
+  const form = new URLSearchParams(await request.text())
+  const grant = form.get("grant_type")
+
+  async function mint(clientId: string, userId: string) {
+    const access = randomToken(32)
+    const refresh = randomToken(32)
+    const { error } = await db.from("oauth_tokens").insert({
+      access_hash: await sha256(access),
+      refresh_hash: await sha256(refresh),
+      client_id: clientId,
+      user_id: userId,
+      expires_at: new Date(Date.now() + ACCESS_TTL_SEC * 1000).toISOString(),
+    })
+    if (error) return json({ error: "server_error", error_description: error.message }, 500)
+    return json({
+      access_token: access,
+      token_type: "Bearer",
+      expires_in: ACCESS_TTL_SEC,
+      refresh_token: refresh,
+      scope: "mcp",
+    })
+  }
+
+  if (grant === "authorization_code") {
+    const code = form.get("code") ?? ""
+    const verifier = form.get("code_verifier") ?? ""
+    const { data: row } = await db
+      .from("oauth_codes")
+      .select("*")
+      .eq("code_hash", await sha256(code))
+      .maybeSingle()
+
+    if (!row || row.used_at) return json({ error: "invalid_grant" }, 400)
+    if (new Date(row.expires_at as string) < new Date()) {
+      return json({ error: "invalid_grant", error_description: "코드가 만료되었습니다." }, 400)
+    }
+    if (form.get("redirect_uri") !== row.redirect_uri) {
+      return json({ error: "invalid_grant", error_description: "redirect_uri 가 다릅니다." }, 400)
+    }
+
+    // PKCE — verifier 의 S256 이 등록된 challenge 와 같아야 한다.
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(verifier)
+    )
+    const computed = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+    if (computed !== row.code_challenge) {
+      return json({ error: "invalid_grant", error_description: "PKCE 검증에 실패했습니다." }, 400)
+    }
+
+    // 코드는 한 번만. 재사용은 탈취 신호다.
+    await db.from("oauth_codes").update({ used_at: new Date().toISOString() }).eq("code_hash", row.code_hash)
+    return await mint(row.client_id as string, row.user_id as string)
+  }
+
+  if (grant === "refresh_token") {
+    const refresh = form.get("refresh_token") ?? ""
+    const { data: row } = await db
+      .from("oauth_tokens")
+      .select("*")
+      .eq("refresh_hash", await sha256(refresh))
+      .is("revoked_at", null)
+      .maybeSingle()
+    if (!row) return json({ error: "invalid_grant" }, 400)
+
+    // 갱신할 때마다 옛 토큰은 죽인다(회전).
+    await db.from("oauth_tokens").update({ revoked_at: new Date().toISOString() }).eq("id", row.id)
+    return await mint(row.client_id as string, row.user_id as string)
+  }
+
+  return json({ error: "unsupported_grant_type" }, 400)
+}
+
 function reply(id: unknown, result: unknown): Response {
   return new Response(JSON.stringify({ jsonrpc: "2.0", id, result }), {
     headers: { "content-type": "application/json", ...CORS },
@@ -381,6 +683,36 @@ function fail(id: unknown, code: number, message: string): Response {
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS })
+  }
+
+  // ── OAuth 경로 먼저 ────────────────────────────────────────────────────────
+  // 함수 이름 뒤에 붙은 부분만 본다. 배포 환경에 따라 앞이 달라질 수 있다.
+  const url = new URL(request.url)
+  const tail = url.pathname.replace(/^.*\/ip-mcp/, "") || "/"
+
+  if (tail === "/.well-known/oauth-protected-resource") {
+    return protectedResourceMetadata()
+  }
+  if (
+    tail === "/.well-known/oauth-authorization-server" ||
+    tail === "/.well-known/openid-configuration"
+  ) {
+    return authorizationServerMetadata()
+  }
+  if (tail === "/register" && request.method === "POST") {
+    return await registerClient(request)
+  }
+  if (tail === "/authorize" && request.method === "GET") {
+    return await authorize(url)
+  }
+  if (tail === "/request" && request.method === "GET") {
+    return await requestInfo(url)
+  }
+  if (tail === "/approve" && request.method === "POST") {
+    return await approve(request)
+  }
+  if (tail === "/token" && request.method === "POST") {
+    return await issueToken(request)
   }
 
   // 커넥터가 살아 있는지 볼 때 GET 을 던지는 클라이언트가 있다.
@@ -435,7 +767,9 @@ Deno.serve(async (request) => {
         status: 401,
         headers: {
           "content-type": "application/json",
-          "www-authenticate": 'Bearer realm="hadd-ip"',
+          // OAuth 를 쓰는 클라이언트는 이 헤더를 보고 스스로 등록·인가를 시작한다.
+          // `.well-known` 을 호스트 루트에 둘 수 없어서 주소를 명시해 준다.
+          "www-authenticate": `Bearer realm="hadd-ip", resource_metadata="${BASE}/.well-known/oauth-protected-resource"`,
           ...CORS,
         },
       }
