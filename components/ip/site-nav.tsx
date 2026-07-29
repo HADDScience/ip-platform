@@ -26,6 +26,8 @@ export function SiteNav() {
   const badge = useMemo(() => {
     const latest = new Map<string, (typeof progress)[number]>()
     for (const e of progress) {
+      // 값 정정은 차례를 말하지 않는다. 세면 밀린 일이 배지에서 사라진다.
+      if (e.source === "edit") continue
       const k = `${e.entityKind}:${e.entityId}`
       const cur = latest.get(k)
       if (!cur || e.date > cur.date) latest.set(k, e)

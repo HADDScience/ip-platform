@@ -36,10 +36,13 @@ export function TodoView() {
     return map
   }, [trademarks, patents])
 
-  // 건마다 가장 최근 기록만 본다. 옛 기록의 「우리 차례」는 이미 지나간 상태다.
+  // 건마다 가장 최근 기록만 본다. 옛 기록의 「회신 필요」는 이미 지나간 상태다.
+    // 값 정정(source='edit')은 누구 차례인지에 대해 아무 말도 하지 않는다.
+    // 그것까지 최신으로 치면 정정 한 번에 밀린 일이 목록에서 사라진다.
   const latest = useMemo(() => {
     const map = new Map<string, ProgressEntry>()
     for (const e of progress) {
+      if (e.source === "edit") continue
       const k = `${e.entityKind}:${e.entityId}`
       const cur = map.get(k)
       if (!cur || e.date > cur.date) map.set(k, e)

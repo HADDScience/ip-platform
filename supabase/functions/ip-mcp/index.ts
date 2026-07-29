@@ -108,6 +108,23 @@ const TOOLS = [
     },
   },
   {
+    name: "get_ip",
+    description:
+      "건 하나의 지금 상태와 진행 이력 전부. 「어디까지 진행됐나」에 답할 때 쓴다. list_ip 로 ID 를 찾은 뒤 부른다. 이력에는 우리가 엑셀에서 이어받은 출발선(opening)도 함께 나오는데, 그것은 사건이 아니라 인수 시점이다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        entityId: { type: "string", description: "대상 ID. 예: TM-13, PT-07" },
+        entityKind: {
+          type: "string",
+          enum: ["trademark", "patent"],
+          description: "생략하면 ID 접두사(TM-/PT-)로 판단한다.",
+        },
+      },
+      required: ["entityId"],
+    },
+  },
+  {
     name: "list_todo",
     description:
       "밀린 업무. 건마다 가장 최근 기록을 보고 우리 차례로 남아 있는 것과 상대 회신을 기다리는 것을 알려준다.",
@@ -190,16 +207,79 @@ async function runTool(
     return { text: JSON.stringify(out, null, 2) }
   }
 
+  if (name === "get_ip") {
+    const id = String(args.entityId ?? "").trim()
+    // ID 접두사가 곧 부류다. 굳이 물어보지 않아도 되게 한다.
+    const kind =
+      (args.entityKind as string | undefined) ??
+      (id.toUpperCase().startsWith("PT") ? "patent" : "trademark")
+
+    const table = kind === "trademark" ? "trademarks" : "patents"
+    const columns =
+      kind === "trademark"
+        ? "id, name, name_ko, classes, goods, status, app_no, reg_no, ref_date, filed_on, registered_on, holder, probability, note"
+        : "id, title, status, app_no, reg_no, ref_date, filed_on, registered_on, applicant, note"
+
+    const { data: row, error: rowError } = await db
+      .from(table)
+      .select(columns)
+      .eq("id", id)
+      .maybeSingle()
+    if (rowError) return { error: rowError.message }
+    if (!row) {
+      return { error: `${id} 는 대장에 없습니다. list_ip 로 ID 를 먼저 확인하세요.` }
+    }
+
+    const { data: opening, error: openError } = await db
+      .from("opening_state")
+      .select("stage, ref_date, taken_over_on, source_note")
+      .eq("entity_kind", kind)
+      .eq("entity_id", id)
+      .maybeSingle()
+    if (openError) return { error: openError.message }
+
+    const { data: history, error: histError } = await db
+      .from("progress_entries")
+      .select(
+        "occurred_on, stage, direction, counterpart, next_turn, due_on, app_no, reg_no, name, holder, probability, note, source"
+      )
+      .eq("entity_kind", kind)
+      .eq("entity_id", id)
+      .order("occurred_on", { ascending: false })
+    if (histError) return { error: histError.message }
+
+    return {
+      text: JSON.stringify(
+        {
+          현재: row,
+          진행_이력: history ?? [],
+          // 기록이 없으면 왜 없는지가 답의 일부다. 지어낸 일이 아니라 인수분이다.
+          출발선: opening
+            ? {
+                ...opening,
+                설명:
+                  "우리가 이 상태를 이어받은 시점입니다. 그날 무슨 일이 있었다는 뜻이 아닙니다.",
+              }
+            : null,
+        },
+        null,
+        2
+      ),
+    }
+  }
+
   if (name === "list_todo") {
     const { data, error } = await db
       .from("progress_entries")
-      .select("id, occurred_on, entity_kind, entity_id, stage, next_turn, due_on, counterpart, note")
+      .select("id, occurred_on, entity_kind, entity_id, stage, next_turn, due_on, counterpart, note, source")
       .order("occurred_on", { ascending: false })
     if (error) return { error: error.message }
 
-    // 건마다 가장 최근 기록만 본다. 옛 기록의 「우리 차례」는 이미 지나간 상태다.
+    // 건마다 가장 최근 기록만 본다. 옛 기록의 「회신 필요」는 이미 지나간 상태다.
+    // 값 정정(source='edit')은 누구 차례인지에 대해 아무 말도 하지 않으므로 건너뛴다.
     const latest = new Map<string, (typeof data)[number]>()
     for (const row of data ?? []) {
+      if (row.source === "edit") continue
       const key = `${row.entity_kind}:${row.entity_id}`
       if (!latest.has(key)) latest.set(key, row)
     }
