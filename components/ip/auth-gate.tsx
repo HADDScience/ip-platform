@@ -332,9 +332,13 @@ function AccessRequestForm({
   const [name, setName] = useState(
     String(meta?.full_name ?? meta?.name ?? "") || ""
   )
-  const [workEmail, setWorkEmail] = useState(
-    providerEmail.endsWith("@haddscience.com") ? providerEmail : ""
-  )
+  // 업무 이메일은 더 이상 묻지 않는다. 소셜 계정이 이미 회사 주소면 그것을
+  // 그대로 쓰고, 아니면 관리자가 승인하며 사람을 알아본다 — 승인이 있는데 주소를
+  // 한 번 더 받아 적는 것은 신청자에게 일만 늘린다. work_email 칸은 남겨 둔다.
+  // 이미 적어 낸 사람들의 값이 식별자로 쓰이고 있다.
+  const workEmail = providerEmail.endsWith("@haddscience.com")
+    ? providerEmail
+    : ""
   const [message, setMessage] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -379,19 +383,6 @@ function AccessRequestForm({
             placeholder="정우창"
             className="h-8 text-xs"
           />
-        </Field>
-
-        <Field label="업무 이메일 (네이버웍스)">
-          <Input
-            value={workEmail}
-            onChange={(e) => setWorkEmail(e.target.value)}
-            placeholder="name@haddscience.com"
-            className="h-8 text-xs"
-          />
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            입력하시면 이 주소를 식별자로 쓰고, 소셜 계정 이메일은 저장하지
-            않습니다.
-          </p>
         </Field>
 
         <Field label="남길 말">

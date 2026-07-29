@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Download04Icon,
+  HelpCircleIcon,
   Logout03Icon,
   Moon02Icon,
   RefreshIcon,
@@ -12,6 +13,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
+import { Tutorial } from "@/components/ip/tutorial"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useData } from "@/components/ip/data-provider"
 import { useToday } from "@/hooks/use-today"
@@ -24,6 +26,8 @@ export function SiteHeader() {
   const { member, signOut } = useAuth()
   const { meta, trademarks, patents, refresh, reloading } = useData()
   const [busy, setBusy] = useState(false)
+  // 첫 안내는 저절로 한 번 뜨고 끝난다. 다시 보고 싶을 때 여는 자리가 필요하다.
+  const [help, setHelp] = useState(false)
 
   async function onExportAll() {
     setBusy(true)
@@ -95,6 +99,16 @@ export function SiteHeader() {
           <Button
             size="icon-sm"
             variant="ghost"
+            aria-label="처음 안내 다시 보기"
+            title="처음 안내 다시 보기"
+            onClick={() => setHelp(true)}
+          >
+            <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} />
+          </Button>
+
+          <Button
+            size="icon-sm"
+            variant="ghost"
             aria-label="로그아웃"
             onClick={() => void signOut()}
           >
@@ -102,6 +116,11 @@ export function SiteHeader() {
           </Button>
         </div>
       </div>
+
+      {/* 처음 온 사람에게 저절로 뜨는 쪽 */}
+      <Tutorial />
+      {/* 물음표로 다시 여는 쪽. 본 표시를 다시 남기지 않는다. */}
+      <Tutorial open={help} onOpenChange={setHelp} />
     </header>
   )
 }

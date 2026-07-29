@@ -707,6 +707,34 @@ export async function saveStageOrder(
   check(error)
 }
 
+/**
+ * 첫 안내를 봤는지.
+ *
+ * 기기가 아니라 사람에게 붙는다 — 회사 PC 에서 닫은 안내가 노트북에서 또 뜨면
+ * 안내가 아니라 방해다.
+ */
+export async function loadTutorialSeen(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("member_prefs")
+    .select("tutorial_seen_at")
+    .eq("user_id", userId)
+    .maybeSingle()
+  check(error)
+  return Boolean(data?.tutorial_seen_at)
+}
+
+export async function markTutorialSeen(userId: string): Promise<void> {
+  const { error } = await supabase.from("member_prefs").upsert(
+    {
+      user_id: userId,
+      tutorial_seen_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  )
+  check(error)
+}
+
 // ---------------------------------------------------------------------------
 // 값 정정
 // ---------------------------------------------------------------------------

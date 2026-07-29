@@ -262,7 +262,16 @@ function buildClients(token: string | null): Client[] {
   ]
 }
 
-export function McpInstall() {
+export function McpInstall({
+  open,
+  onOpenChange,
+}: {
+  /** 넘기면 바깥에서 여닫는다. 첫 안내가 마지막 걸음에서 이 창으로 넘긴다. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+} = {}) {
+  const controlled = open !== undefined
+
   // 방금 발급한 토큰. 커맨드·딥링크·프롬프트에 그대로 실어 보낸다.
   const [token, setToken] = useState<string | null>(null)
   const clients = useMemo(() => buildClients(token), [token])
@@ -283,10 +292,13 @@ export function McpInstall() {
   }
 
   return (
-    <Dialog>
-      <DialogTrigger className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground">
-        AI 도구 설치하기 (MCP)
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* 바깥에서 여닫을 때는 버튼이 필요 없다. 두면 화면에 유령 버튼이 남는다. */}
+      {controlled ? null : (
+        <DialogTrigger className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground">
+          AI 도구 설치하기 (MCP)
+        </DialogTrigger>
+      )}
 
       <DialogContent>
         <DialogHeader className="flex-row items-start justify-between gap-3 pr-10">
