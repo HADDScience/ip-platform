@@ -154,7 +154,7 @@ const TOOLS = [
   {
     name: "add_progress",
     description:
-      "진행 기록을 남긴다. 이 도구 하나로 대장(단계·번호·날짜)까지 함께 갱신된다 — 대장을 따로 고치지 않는다. 메일을 받았다면 그 내용을 note 에 옮기고 direction 을 '수신', source 를 'mail' 로 둔다.",
+      "진행 기록을 남긴다. 이 도구 하나로 대장(단계·번호·날짜)까지 함께 갱신된다 — 대장을 따로 고치지 않는다. 메일이 근거라면 받은 메일이든 보낸 메일이든 그 내용을 note 에 옮기고 direction 을 채운 뒤 source 를 'mail' 로 둔다. 결과로 기록_id 와 대장의 이전·이후 상태를 돌려주므로 정말 반영됐는지 그 자리에서 확인할 수 있다 — 기록_id 가 있으면 저장된 것이니 같은 내용을 다시 쓰지 않는다.",
     inputSchema: {
       type: "object",
       properties: {
@@ -168,7 +168,8 @@ const TOOLS = [
         direction: {
           type: "string",
           enum: ["수신", "송신"],
-          description: "메일을 주고받은 기록이면 방향. 내부 결정이면 비운다.",
+          description:
+            "메일을 주고받은 기록이면 방향. 받은 메일이면 '수신', 보낸 메일이면 '송신'. 구두·회의·내부 결정이면 비운다. 이 칸을 채웠다면 source 는 반드시 'mail' 이다.",
         },
         counterpart: { type: "string", description: "상대. 예: 특허법인 이름" },
         nextTurn: {
@@ -186,7 +187,7 @@ const TOOLS = [
           type: "string",
           enum: ["manual", "mail"],
           description:
-            "이 기록이 어디서 왔는지. 메일 내용을 옮긴 것이면 'mail', 구두·회의·내부 결정처럼 메일이 아닌 것이면 'manual'. 생략하면 'manual'.",
+            "이 근거가 어디서 왔는지. 사용자가 메일 본문을 붙여넣었거나 '이렇게 보냈어'·'이런 답이 왔어' 처럼 주고받은 메일을 옮기는 것이면 방향과 무관하게 'mail'. 구두·회의·내부 결정처럼 메일이 아닌 것만 'manual'. 생략하면 'manual' 이지만, direction 을 채웠다면 서버가 'mail' 로 바로잡는다.",
         },
       },
       required: ["date", "entityKind", "entityId", "stage", "nextTurn"],
@@ -204,7 +205,9 @@ async function runTool(
   if (name === "list_stages") {
     const { data, error } = await db
       .from("status_options")
-      .select("value, sort_order, is_open, wants_app_no, wants_reg_no, wants_probability, wants_due")
+      .select(
+        "value, sort_order, is_open, wants_app_no, wants_reg_no, wants_probability, wants_due"
+      )
       .eq("kind", args.kind)
       .eq("selectable", true)
       .order("sort_order")
@@ -218,15 +221,25 @@ async function runTool(
     const out: unknown[] = []
 
     if (kind !== "patent") {
-      let q = db.from("trademarks").select("id, name, status, app_no, reg_no, ref_date, holder")
-      if (query) q = q.or(`name.ilike.%${query}%,app_no.ilike.%${query}%,reg_no.ilike.%${query}%`)
+      let q = db
+        .from("trademarks")
+        .select("id, name, status, app_no, reg_no, ref_date, holder")
+      if (query)
+        q = q.or(
+          `name.ilike.%${query}%,app_no.ilike.%${query}%,reg_no.ilike.%${query}%`
+        )
       const { data, error } = await q.order("id")
       if (error) return { error: error.message }
       out.push(...(data ?? []).map((r) => ({ kind: "trademark", ...r })))
     }
     if (kind !== "trademark") {
-      let q = db.from("patents").select("id, title, status, app_no, reg_no, ref_date, applicant")
-      if (query) q = q.or(`title.ilike.%${query}%,app_no.ilike.%${query}%,reg_no.ilike.%${query}%`)
+      let q = db
+        .from("patents")
+        .select("id, title, status, app_no, reg_no, ref_date, applicant")
+      if (query)
+        q = q.or(
+          `title.ilike.%${query}%,app_no.ilike.%${query}%,reg_no.ilike.%${query}%`
+        )
       const { data, error } = await q.order("id")
       if (error) return { error: error.message }
       out.push(...(data ?? []).map((r) => ({ kind: "patent", ...r })))
@@ -254,7 +267,9 @@ async function runTool(
       .maybeSingle()
     if (rowError) return { error: rowError.message }
     if (!row) {
-      return { error: `${id} 는 대장에 없습니다. list_ip 로 ID 를 먼저 확인하세요.` }
+      return {
+        error: `${id} 는 대장에 없습니다. list_ip 로 ID 를 먼저 확인하세요.`,
+      }
     }
 
     const { data: opening, error: openError } = await db
@@ -284,8 +299,7 @@ async function runTool(
           출발선: opening
             ? {
                 ...opening,
-                설명:
-                  "우리가 이 상태를 이어받은 시점입니다. 그날 무슨 일이 있었다는 뜻이 아닙니다.",
+                설명: "우리가 이 상태를 이어받은 시점입니다. 그날 무슨 일이 있었다는 뜻이 아닙니다.",
               }
             : null,
         },
@@ -298,7 +312,9 @@ async function runTool(
   if (name === "list_todo") {
     const { data, error } = await db
       .from("progress_entries")
-      .select("id, occurred_on, entity_kind, entity_id, stage, next_turn, due_on, counterpart, note, source")
+      .select(
+        "id, occurred_on, entity_kind, entity_id, stage, next_turn, due_on, counterpart, note, source"
+      )
       .order("occurred_on", { ascending: false })
     if (error) return { error: error.message }
 
@@ -331,9 +347,12 @@ async function runTool(
 
     const kind = args.entityKind as string
     const table = kind === "trademark" ? "trademarks" : "patents"
+    // 쓰기 전 대장을 떠 둔다. 쓴 뒤와 견줘야 "정말 바뀌었나"를 부르는 쪽이 볼 수
+    // 있다. 진행 기록은 들어갔는데 대장은 안 움직이는 경우가 실제로 있다.
+    const LEDGER = "status, ref_date, app_no, reg_no"
     const { data: found, error: findError } = await db
       .from(table)
-      .select("id")
+      .select(LEDGER)
       .eq("id", args.entityId)
       .maybeSingle()
     if (findError) return { error: findError.message }
@@ -356,28 +375,74 @@ async function runTool(
       }
     }
 
-    const { error } = await db.from("progress_entries").insert({
-      occurred_on: args.date,
-      entity_kind: kind,
-      entity_id: args.entityId,
-      stage: args.stage,
-      direction: args.direction ?? null,
-      counterpart: (args.counterpart as string) ?? "",
-      next_turn: args.nextTurn,
-      due_on: args.dueOn ?? null,
-      app_no: args.appNo ?? null,
-      reg_no: args.regNo ?? null,
-      probability: args.probability ?? null,
-      note: (args.note as string) ?? "",
-      // 나중에 되짚을 때 출처가 보여야 한다. 메일을 옮긴 것과 구두로 들은 것은
-      // 근거의 무게가 다르므로 부르는 쪽이 밝히게 한다.
-      source: args.source === "mail" ? "mail" : "manual",
-      raw: null,
-    })
+    // 나중에 되짚을 때 근거의 출처가 보여야 한다. 메일을 옮긴 것과 구두로 들은
+    // 것은 무게가 다르다. 방향이 채워졌는데 'manual' 이라 말한 경우는 DB 가
+    // 'mail' 로 바로잡는다 — 같은 판단이 웹 양식에도 걸려야 해서 여기가 아니라
+    // 한 곳(트리거)에 둔다. 그 결과는 아래 저장된_값 에 그대로 실려 돌아간다.
+    const source = args.source === "mail" ? "mail" : "manual"
+
+    const { data: written, error } = await db
+      .from("progress_entries")
+      .insert({
+        occurred_on: args.date,
+        entity_kind: kind,
+        entity_id: args.entityId,
+        stage: args.stage,
+        direction: args.direction ?? null,
+        counterpart: (args.counterpart as string) ?? "",
+        next_turn: args.nextTurn,
+        due_on: args.dueOn ?? null,
+        app_no: args.appNo ?? null,
+        reg_no: args.regNo ?? null,
+        probability: args.probability ?? null,
+        note: (args.note as string) ?? "",
+        source,
+        raw: null,
+      })
+      .select("id, occurred_on, stage, direction, next_turn, source")
+      .single()
     if (error) return { error: error.message }
 
+    // 쓴 뒤의 대장. 트리거가 움직였는지는 여기서만 알 수 있다.
+    const { data: after, error: afterError } = await db
+      .from(table)
+      .select(LEDGER)
+      .eq("id", args.entityId)
+      .maybeSingle()
+    if (afterError) return { error: afterError.message }
+
+    const before = found as Record<string, unknown>
+    const now = (after ?? {}) as Record<string, unknown>
+    const changed = Object.keys(now).filter(
+      (k) => String(now[k] ?? "") !== String(before[k] ?? "")
+    )
+
+    // 대장이 안 움직이는 정상적인 경우가 하나 있다: 더 최근 기록이 이미 있을 때.
+    // 지난 일을 뒤늦게 채우는 것이라 단계를 되돌리면 안 된다. 이걸 말해주지
+    // 않으면 부르는 쪽은 "실패했다"고 보고 같은 걸 계속 다시 쓴다.
+    const stageMoved = now.status === args.stage
+    const olderThanLedger =
+      typeof before.ref_date === "string" && String(args.date) < before.ref_date
+
     return {
-      text: `기록했습니다. ${args.entityId} · ${args.stage} · ${args.date} (${caller.displayName ?? caller.email})`,
+      text: JSON.stringify(
+        {
+          기록됨: true,
+          기록_id: written?.id ?? null,
+          저장된_값: written,
+          대장: { 이전: before, 이후: now, 바뀐_칸: changed },
+          대장_반영: stageMoved
+            ? "단계가 이 기록대로 바뀌었습니다."
+            : olderThanLedger
+              ? `단계는 그대로입니다. 더 최근 기록(${before.ref_date})이 있어 지난 일로 되돌리지 않습니다 — 정상이며 다시 시도할 필요가 없습니다. 지금 상태를 바꾸려면 오늘 날짜로 기록하세요.`
+              : "단계가 바뀌지 않았습니다. 예상과 다르면 get_ip 로 확인하세요.",
+          확인_방법:
+            "기록_id 가 있으면 저장된 것입니다. 같은 내용을 다시 쓰면 중복 기록이 생깁니다 — 실패로 보이더라도 먼저 get_ip 로 확인하세요.",
+          기록자: caller.displayName ?? caller.email,
+        },
+        null,
+        2
+      ),
     }
   }
 
@@ -390,7 +455,8 @@ async function runTool(
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, mcp-protocol-version",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, mcp-protocol-version",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 }
 
@@ -456,7 +522,10 @@ async function registerClient(request: Request): Promise<Response> {
   const uris = body.redirect_uris ?? []
   if (uris.length === 0) {
     return json(
-      { error: "invalid_redirect_uri", error_description: "redirect_uris 가 필요합니다." },
+      {
+        error: "invalid_redirect_uri",
+        error_description: "redirect_uris 가 필요합니다.",
+      },
       400
     )
   }
@@ -467,7 +536,11 @@ async function registerClient(request: Request): Promise<Response> {
     client_name: body.client_name ?? "",
     redirect_uris: uris,
   })
-  if (error) return json({ error: "server_error", error_description: error.message }, 500)
+  if (error)
+    return json(
+      { error: "server_error", error_description: error.message },
+      500
+    )
 
   return json(
     {
@@ -498,7 +571,8 @@ async function authorize(url: URL): Promise<Response> {
 
   // 클라이언트나 redirect_uri 가 수상하면 그쪽으로 되돌려 보내지 않는다.
   // 공격자가 지정한 주소로 오류를 흘리면 그것이 곧 통로가 된다.
-  if (!client) return new Response("알 수 없는 client_id 입니다.", { status: 400 })
+  if (!client)
+    return new Response("알 수 없는 client_id 입니다.", { status: 400 })
   if (!(client.redirect_uris as string[]).includes(redirectUri)) {
     return new Response("등록되지 않은 redirect_uri 입니다.", { status: 400 })
   }
@@ -528,7 +602,10 @@ async function authorize(url: URL): Promise<Response> {
  * 우리가 로그인 화면을 새로 만들지 않아도 되는 이유다.
  */
 async function approve(request: Request): Promise<Response> {
-  const jwt = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")
+  const jwt = (request.headers.get("authorization") ?? "").replace(
+    /^Bearer\s+/i,
+    ""
+  )
   const { data: userData } = await db.auth.getUser(jwt)
   const user = userData?.user
   if (!user) return json({ error: "로그인이 필요합니다." }, 401)
@@ -554,7 +631,10 @@ async function approve(request: Request): Promise<Response> {
     .maybeSingle()
   if (!req) return json({ error: "만료되었거나 없는 요청입니다." }, 400)
   if (new Date(req.expires_at as string) < new Date()) {
-    return json({ error: "요청이 만료되었습니다. 처음부터 다시 시도하세요." }, 400)
+    return json(
+      { error: "요청이 만료되었습니다. 처음부터 다시 시도하세요." },
+      400
+    )
   }
 
   const code = randomToken(32)
@@ -612,7 +692,11 @@ async function issueToken(request: Request): Promise<Response> {
       user_id: userId,
       expires_at: new Date(Date.now() + ACCESS_TTL_SEC * 1000).toISOString(),
     })
-    if (error) return json({ error: "server_error", error_description: error.message }, 500)
+    if (error)
+      return json(
+        { error: "server_error", error_description: error.message },
+        500
+      )
     return json({
       access_token: access,
       token_type: "Bearer",
@@ -633,10 +717,19 @@ async function issueToken(request: Request): Promise<Response> {
 
     if (!row || row.used_at) return json({ error: "invalid_grant" }, 400)
     if (new Date(row.expires_at as string) < new Date()) {
-      return json({ error: "invalid_grant", error_description: "코드가 만료되었습니다." }, 400)
+      return json(
+        { error: "invalid_grant", error_description: "코드가 만료되었습니다." },
+        400
+      )
     }
     if (form.get("redirect_uri") !== row.redirect_uri) {
-      return json({ error: "invalid_grant", error_description: "redirect_uri 가 다릅니다." }, 400)
+      return json(
+        {
+          error: "invalid_grant",
+          error_description: "redirect_uri 가 다릅니다.",
+        },
+        400
+      )
     }
 
     // PKCE — verifier 의 S256 이 등록된 challenge 와 같아야 한다.
@@ -649,11 +742,20 @@ async function issueToken(request: Request): Promise<Response> {
       .replace(/\//g, "_")
       .replace(/=+$/, "")
     if (computed !== row.code_challenge) {
-      return json({ error: "invalid_grant", error_description: "PKCE 검증에 실패했습니다." }, 400)
+      return json(
+        {
+          error: "invalid_grant",
+          error_description: "PKCE 검증에 실패했습니다.",
+        },
+        400
+      )
     }
 
     // 코드는 한 번만. 재사용은 탈취 신호다.
-    await db.from("oauth_codes").update({ used_at: new Date().toISOString() }).eq("code_hash", row.code_hash)
+    await db
+      .from("oauth_codes")
+      .update({ used_at: new Date().toISOString() })
+      .eq("code_hash", row.code_hash)
     return await mint(row.client_id as string, row.user_id as string)
   }
 
@@ -668,7 +770,10 @@ async function issueToken(request: Request): Promise<Response> {
     if (!row) return json({ error: "invalid_grant" }, 400)
 
     // 갱신할 때마다 옛 토큰은 죽인다(회전).
-    await db.from("oauth_tokens").update({ revoked_at: new Date().toISOString() }).eq("id", row.id)
+    await db
+      .from("oauth_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", row.id)
     return await mint(row.client_id as string, row.user_id as string)
   }
 
@@ -682,9 +787,12 @@ function reply(id: unknown, result: unknown): Response {
 }
 
 function fail(id: unknown, code: number, message: string): Response {
-  return new Response(JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }), {
-    headers: { "content-type": "application/json", ...CORS },
-  })
+  return new Response(
+    JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }),
+    {
+      headers: { "content-type": "application/json", ...CORS },
+    }
+  )
 }
 
 Deno.serve(async (request) => {
@@ -724,16 +832,23 @@ Deno.serve(async (request) => {
 
   // 커넥터가 살아 있는지 볼 때 GET 을 던지는 클라이언트가 있다.
   if (request.method === "GET") {
-    return new Response(JSON.stringify({ ...SERVER_INFO, transport: "streamable-http" }), {
-      headers: { "content-type": "application/json", ...CORS },
-    })
+    return new Response(
+      JSON.stringify({ ...SERVER_INFO, transport: "streamable-http" }),
+      {
+        headers: { "content-type": "application/json", ...CORS },
+      }
+    )
   }
 
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405, headers: CORS })
   }
 
-  let message: { id?: unknown; method?: string; params?: Record<string, unknown> }
+  let message: {
+    id?: unknown
+    method?: string
+    params?: Record<string, unknown>
+  }
   try {
     message = await request.json()
   } catch {
