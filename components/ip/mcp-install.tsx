@@ -197,16 +197,23 @@ function buildClients(token: string | null): Client[] {
       steps: (
         <ol className="ml-3.5 list-decimal space-y-1">
           <li>
-            <b>개발자 모드를 먼저 켭니다.</b> 개인 요금제(Plus·Pro)는 설정에서
-            직접 켜고, 회사 요금제(Business·Enterprise)는 관리자가 Workspace
-            Settings → Permissions &amp; Roles 에서 열어줘야 합니다.
+            <b>설정 → 보안 및 로그인</b> 에서 <b>개발자 모드</b>를 켭니다. 회사
+            요금제(Business·Enterprise)는 관리자가 Workspace Settings →
+            Permissions &amp; Roles 에서 열어줘야 합니다.
           </li>
           <li>
-            <b>설정 → 커넥터</b> 에서 커스텀 커넥터를 추가합니다.
+            <b>설정 → 플러그인</b> 으로 갑니다. 예전 「커넥터」가 이름을 바꿔
+            옮겨 온 자리라, 커넥터라는 메뉴는 더 이상 없습니다.
           </li>
-          <li>아래 주소를 붙여넣습니다.</li>
           <li>
-            헤더에 <code className="bg-muted px-1">Authorization</code> ={" "}
+            플러그인 탭에서 검색창 옆 <b>+</b> 를 눌러 새 플러그인을 만듭니다.
+          </li>
+          <li>
+            이름을 적고 <b>서버 URL</b> 에 아래 주소를 넣습니다.
+          </li>
+          <li>
+            인증(Authentication)에{" "}
+            <code className="bg-muted px-1">Authorization</code> ={" "}
             <code className="bg-muted px-1">Bearer {secret}</code> 를 넣고
             저장합니다.
           </li>
@@ -214,24 +221,25 @@ function buildClients(token: string | null): Client[] {
       ),
       note: (
         <>
-          개발자 모드를 켜지 않으면 커넥터를 추가하는 메뉴 자체가 보이지
+          개발자 모드를 켜지 않으면 플러그인을 직접 만드는 <b>+</b> 가 보이지
           않습니다. 무료 요금제는 지원되지 않습니다.
           <br />
           Supabase 처럼 <b>
             「Add to ChatGPT」 원클릭 버튼은 만들 수 없습니다
           </b>{" "}
-          — 그 버튼은 OpenAI 앱 디렉터리에 심사를 거쳐 등재된 앱에만 발급됩니다.
-          사내 도구를 공개 디렉터리에 올릴 일은 아니라 손으로 추가하는 쪽을
-          씁니다.
+          — 그 버튼은 OpenAI 플러그인 디렉터리에 심사를 거쳐 등재된 앱에만
+          발급됩니다. 사내 도구를 공개 디렉터리에 올릴 일은 아니라 손으로
+          추가하는 쪽을 씁니다.
         </>
       ),
       prompt: [
-        "ChatGPT 에 HADD IP 플랫폼의 MCP 서버를 커넥터로 추가하는 방법:",
+        "ChatGPT 에 HADD IP 플랫폼의 MCP 서버를 붙이는 방법:",
         "",
-        "1. 개발자 모드를 켠다 (설정 → 커넥터 → 고급). 회사 요금제는 관리자가 열어줘야 한다.",
-        "2. 설정 → 커넥터에서 커스텀 커넥터 추가",
-        `3. 주소 입력: ${MCP_URL}`,
-        `4. 헤더에 Authorization = Bearer ${secret}`,
+        "1. 설정 → 보안 및 로그인 → 개발자 모드 켜기. 회사 요금제는 관리자가 열어줘야 한다.",
+        "2. 설정 → 플러그인 (예전 「커넥터」가 이름을 바꿔 옮겨 온 자리)",
+        "3. 플러그인 탭에서 검색창 옆 + 를 눌러 새 플러그인 만들기",
+        `4. 서버 URL: ${MCP_URL}`,
+        `5. 인증에 Authorization = Bearer ${secret}`,
       ].join("\n"),
     },
   ]
