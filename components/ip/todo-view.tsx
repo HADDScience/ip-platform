@@ -85,7 +85,7 @@ export function TodoView() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div data-tutorial="todo" className="flex flex-col gap-4">
       <PageHeader
         title="밀린 IP 업무"
         description="회신·제출이 걸린 건, 오래 멈춘 건, 값이 안 맞는 건입니다."

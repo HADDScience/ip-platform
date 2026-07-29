@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { createPortal } from "react-dom"
+import { usePathname, useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert02Icon,
@@ -12,13 +14,6 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { McpInstall } from "@/components/ip/mcp-install"
 import { useAuth } from "@/components/ip/auth-gate"
 import { loadTutorialSeen, markTutorialSeen } from "@/lib/db"
@@ -42,12 +37,16 @@ interface Step {
   title: string
   lead: string
   body: React.ReactNode
+  href: string
+  target: string
 }
 
 const STEPS: Step[] = [
   {
     title: "기록을 쌓으면 목록이 따라옵니다",
     lead: "이 도구에서 사람이 채우는 것은 「진행 기록」 하나뿐입니다.",
+    href: "/",
+    target: "workflow",
     body: (
       <div className="flex flex-col gap-2">
         <p>
@@ -79,6 +78,8 @@ const STEPS: Step[] = [
   {
     title: "기록하기",
     lead: "언제 · 어느 건이 · 어디까지 갔고 · 이제 누구 차례인지.",
+    href: "/",
+    target: "record-form",
     body: (
       <ul className="flex flex-col gap-1.5">
         <Bullet>
@@ -98,6 +99,8 @@ const STEPS: Step[] = [
   {
     title: "IP",
     lead: "지금 상태와 지나온 이력이 한 줄씩 놓입니다.",
+    href: "/register",
+    target: "register",
     body: (
       <ul className="flex flex-col gap-1.5">
         <Bullet>
@@ -127,6 +130,8 @@ const STEPS: Step[] = [
   {
     title: "밀린 IP 업무",
     lead: "지금 손대야 할 것만 모읍니다.",
+    href: "/todo",
+    target: "todo",
     body: (
       <ul className="flex flex-col gap-1.5">
         <Bullet>
@@ -161,6 +166,8 @@ const STEPS: Step[] = [
   {
     title: "AI 도구에 연결하기",
     lead: "여기까지 오셨으면 이것 하나만 더. 입력하는 방식이 바뀝니다.",
+    href: "/",
+    target: "mcp",
     body: (
       <div className="flex flex-col gap-2">
         <p>
@@ -219,12 +226,15 @@ export function Tutorial({
   onOpenChange?: (open: boolean) => void
 } = {}) {
   const { member } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
   const controlled = open !== undefined
 
   // 처음 온 사람에게 저절로 뜨는 쪽. 바깥에서 열 때는 이 값을 쓰지 않는다.
   const [auto, setAuto] = useState(false)
   const [step, setStep] = useState(0)
   const [mcpOpen, setMcpOpen] = useState(false)
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
     if (controlled) return
@@ -242,8 +252,10 @@ export function Tutorial({
   }, [controlled, member.userId])
 
   const isOpen = controlled ? open : auto
+  const last = step === STEPS.length - 1
+  const current = STEPS[step]
 
-  function close() {
+  const close = useCallback(() => {
     if (controlled) {
       onOpenChange?.(false)
     } else {
@@ -252,82 +264,187 @@ export function Tutorial({
       void markTutorialSeen(member.userId).catch(() => {})
     }
     setStep(0)
-  }
+  }, [controlled, member.userId, onOpenChange])
 
-  const last = step === STEPS.length - 1
-  const current = STEPS[step]
+  useEffect(() => {
+    if (isOpen && pathname !== current.href) router.push(current.href)
+  }, [current.href, isOpen, pathname, router])
+
+  const measure = useCallback(() => {
+    const target = document.querySelector<HTMLElement>(
+      `[data-tutorial="${current.target}"]`
+    )
+    setTargetRect(target?.getBoundingClientRect() ?? null)
+  }, [current.target])
+
+  useLayoutEffect(() => {
+    if (!isOpen || pathname !== current.href) return
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-tutorial="${current.target}"]`
+      )
+      target?.scrollIntoView({ block: "center", behavior: "smooth" })
+      measure()
+    })
+    const observer = new ResizeObserver(measure)
+    const target = document.querySelector<HTMLElement>(
+      `[data-tutorial="${current.target}"]`
+    )
+    if (target) observer.observe(target)
+    window.addEventListener("resize", measure)
+    window.addEventListener("scroll", measure, true)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener("resize", measure)
+      window.removeEventListener("scroll", measure, true)
+    }
+  }, [current.href, current.target, isOpen, measure, pathname])
+
+  useEffect(() => {
+    if (!isOpen) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") close()
+      if (event.key === "ArrowRight" && step < STEPS.length - 1) {
+        setStep((value) => value + 1)
+      }
+      if (event.key === "ArrowLeft" && step > 0) {
+        setStep((value) => value - 1)
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [close, isOpen, step])
+
+  const portalRoot = typeof document === "undefined" ? null : document.body
 
   return (
     <>
-      <Dialog
-        open={isOpen}
-        onOpenChange={(next) => {
-          if (!next) close()
-        }}
-      >
-        <DialogContent className="max-w-[34rem]">
-          <DialogHeader className="pr-10">
-            <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-              {last ? (
-                <HugeiconsIcon
-                  icon={RoboticIcon}
-                  strokeWidth={2}
-                  className="size-3.5"
-                />
-              ) : null}
-              {step + 1} / {STEPS.length}
-            </div>
-            <DialogTitle>{current.title}</DialogTitle>
-            <DialogDescription>{current.lead}</DialogDescription>
-          </DialogHeader>
+      {portalRoot && isOpen
+        ? createPortal(
+            <div aria-live="polite">
+              <Spotlight rect={targetRect} />
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="tutorial-title"
+                className="fixed right-4 bottom-4 z-[61] flex max-h-[min(70svh,34rem)] w-[calc(100vw-2rem)] max-w-[26rem] flex-col overflow-hidden border border-border/70 bg-popover text-xs/relaxed text-popover-foreground shadow-2xl sm:right-6 sm:bottom-6"
+              >
+                <div className="flex flex-col gap-0.5 p-4 pr-10 pb-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                    {last ? (
+                      <HugeiconsIcon
+                        icon={RoboticIcon}
+                        strokeWidth={2}
+                        className="size-3.5"
+                      />
+                    ) : null}
+                    {step + 1} / {STEPS.length}
+                  </div>
+                  <h2
+                    id="tutorial-title"
+                    className="font-heading text-sm font-medium"
+                  >
+                    {current.title}
+                  </h2>
+                  <p className="text-muted-foreground">{current.lead}</p>
+                </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 text-xs/relaxed">
-            {current.body}
-          </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                  {current.body}
+                </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 p-4">
-            {/* 걸음 표시는 눌러서 오갈 수 있다. 되돌아보고 싶을 때가 있다. */}
-            <div className="flex items-center gap-1">
-              {STEPS.map((s, i) => (
-                <button
-                  key={s.title}
-                  type="button"
-                  aria-label={`${i + 1}. ${s.title}`}
-                  onClick={() => setStep(i)}
-                  className={cn(
-                    "h-1 w-5 transition-colors",
-                    i === step ? "bg-primary" : "bg-muted hover:bg-primary/40"
-                  )}
-                />
-              ))}
-            </div>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 p-4">
+                  <div className="flex items-center gap-1">
+                    {STEPS.map((item, index) => (
+                      <button
+                        key={item.title}
+                        type="button"
+                        aria-label={`${index + 1}. ${item.title}`}
+                        onClick={() => setStep(index)}
+                        className={cn(
+                          "h-1 w-5 transition-colors",
+                          index === step
+                            ? "bg-primary"
+                            : "bg-muted hover:bg-primary/40"
+                        )}
+                      />
+                    ))}
+                  </div>
 
-            <div className="flex items-center gap-1.5">
-              <Button size="sm" variant="ghost" onClick={close}>
-                {last ? "나중에" : "건너뛰기"}
-              </Button>
-              {last ? (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    close()
-                    setMcpOpen(true)
-                  }}
-                >
-                  연결하기
-                </Button>
-              ) : (
-                <Button size="sm" onClick={() => setStep(step + 1)}>
-                  다음
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+                  <div className="flex items-center gap-1.5">
+                    <Button size="sm" variant="ghost" onClick={close}>
+                      {last ? "나중에" : "건너뛰기"}
+                    </Button>
+                    {last ? (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          close()
+                          setMcpOpen(true)
+                        }}
+                      >
+                        연결하기
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => setStep(step + 1)}>
+                        다음
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>,
+            portalRoot
+          )
+        : null}
 
       {/* 마지막 걸음에서 곧장 넘어가는 자리. 안내를 닫고 설치 창을 연다. */}
       <McpInstall open={mcpOpen} onOpenChange={setMcpOpen} />
+    </>
+  )
+}
+
+function Spotlight({ rect }: { rect: DOMRect | null }) {
+  if (!rect) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm" />
+    )
+  }
+
+  const gap = 8
+  const top = Math.max(0, rect.top - gap)
+  const left = Math.max(0, rect.left - gap)
+  const right = Math.min(window.innerWidth, rect.right + gap)
+  const bottom = Math.min(window.innerHeight, rect.bottom + gap)
+  const panel =
+    "fixed z-50 bg-background/55 backdrop-blur-[3px] transition-[inset,width,height] duration-200"
+
+  return (
+    <>
+      <div className={panel} style={{ inset: "0 0 auto 0", height: top }} />
+      <div
+        className={panel}
+        style={{
+          inset: `${top}px auto auto 0`,
+          width: left,
+          height: bottom - top,
+        }}
+      />
+      <div
+        className={panel}
+        style={{
+          inset: `${top}px 0 auto auto`,
+          width: window.innerWidth - right,
+          height: bottom - top,
+        }}
+      />
+      <div className={panel} style={{ inset: `${bottom}px 0 0 0` }} />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed z-[60] border-2 border-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_18%,transparent)] transition-[inset,width,height] duration-200"
+        style={{ top, left, width: right - left, height: bottom - top }}
+      />
     </>
   )
 }

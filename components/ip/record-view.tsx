@@ -52,13 +52,15 @@ export function RecordView() {
         description="언제 · 어느 건이 · 어디까지 갔고 · 이제 누구 차례인지. IP 현황은 이 기록에서 자동으로 갱신됩니다."
       />
 
-      <Card>
+      <Card data-tutorial="record-form">
         <CardContent className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               {editing ? "기록 수정" : "새 기록"}
             </span>
-            <McpInstall />
+            <span data-tutorial="mcp">
+              <McpInstall />
+            </span>
           </div>
 
           {canWrite ? (

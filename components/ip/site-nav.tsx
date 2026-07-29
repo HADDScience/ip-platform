@@ -52,7 +52,10 @@ export function SiteNav() {
 
   return (
     <nav className="sticky top-[57px] z-30 border-b border-border/60 bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/70">
-      <div className="mx-auto flex w-full max-w-[1400px] gap-1 overflow-x-auto px-4 sm:px-6">
+      <div
+        data-tutorial="workflow"
+        className="mx-auto flex w-full max-w-[1400px] gap-1 overflow-x-auto px-4 sm:px-6"
+      >
         {items.map((item) => {
           const active = isActive(pathname, item.href)
           return (

@@ -231,7 +231,7 @@ export function RegisterView() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div data-tutorial="register" className="flex flex-col gap-4">
       <PageHeader
         title={`IP ${trademarks.length + patents.length}건`}
         description="기존 엑셀과 같은 항목입니다. 값은 「기록하기」에서 들어옵니다."
