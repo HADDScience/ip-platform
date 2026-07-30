@@ -157,6 +157,7 @@ const GUIDE = [
   "",
   "■ 7. 쓰기 전에 본다",
   "list_stages 로 쓸 수 있는 단계를 확인하고, get_ip 로 같은 일이 이미 적혀 있지 않은지 본다. 날짜는 KST 이며 일이 일어난 날을 적는다(오늘이 아니다).",
+  "**ID·단계를 사용자에게 되묻지 않는다.** 사용자는 「VIVOFRAME」처럼 이름만 안다 — list_ip 로 찾는 것이 도구의 일이다. 물어보면 사람이 우리 내부 번호를 찾아 적어야 하고, 그러면 이 도구를 쓸 이유가 없어진다.",
   "새 건을 만들기 전에는 list_ip 로 같은 건을 찾아본다 — 이름만 다르게 적힌 같은 건을 둘로 만들면 합치기 어렵다.",
   "",
   "■ 8. 쓴 뒤에 확인한다",
@@ -213,7 +214,7 @@ const TOOLS = [
   {
     name: "list_ip",
     description:
-      "보유한 상표·특허 목록. 기록을 남길 대상의 ID(TM-1, PT-3 …)를 찾을 때 쓴다. 이름 일부로 검색할 수 있다.",
+      "보유한 상표·특허 목록. **사용자가 이름만 말했을 때 ID 를 찾는 길이 이것이다.** 「VIVOFRAME 기록해줘」처럼 이름만 들었으면 query 에 그 이름을 넣어 부른다 — 사용자에게 ID 를 되묻지 않는다. 이름 일부·출원번호·등록번호로 찾는다.",
     inputSchema: {
       type: "object",
       properties: {
@@ -271,10 +272,15 @@ const TOOLS = [
       properties: {
         date: { type: "string", description: "일자 YYYY-MM-DD (KST)" },
         entityKind: { type: "string", enum: ["trademark", "patent"] },
-        entityId: { type: "string", description: "대상 ID. 예: TM-1, PT-3" },
+        entityId: {
+          type: "string",
+          description:
+            "대상 ID. 예: TM-13, PT-07. **모르면 list_ip 에 이름을 넣어 찾는다 — 사용자에게 되묻지 않는다.** ID 를 찾는 것은 도구가 할 일이고, 사용자는 대개 이름만 알고 있다.",
+        },
         stage: {
           type: "string",
-          description: "단계. list_stages 가 알려준 값 중 하나여야 한다.",
+          description:
+            "단계. **모르면 list_stages 를 먼저 부른다** — 여기에 없는 값은 거절된다. 사용자에게 단계 이름을 묻지 않는다.",
         },
         direction: {
           type: "string",
