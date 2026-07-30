@@ -79,7 +79,7 @@ export interface Patent {
 // 진행 기록 — 사용자가 채우는 유일한 양식
 // ---------------------------------------------------------------------------
 
-/** 공이 누구에게 있는지. 미결 액션을 따로 등록하지 않기 위한 장치. */
+/** 지금 누구 차례인지. 미결 액션을 따로 등록하지 않기 위한 장치. */
 export const NEXT_TURNS = ["us", "firm", "none"] as const
 export type NextTurn = (typeof NEXT_TURNS)[number]
 

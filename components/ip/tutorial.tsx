@@ -135,7 +135,8 @@ const STEPS: Step[] = [
     body: (
       <ul className="flex flex-col gap-1.5">
         <Bullet>
-          <b>회신 필요</b> — 공이 우리에게 있는 건. 여기 있는 동안 날이 셉니다.
+          <b>회신 필요</b> — 우리 차례로 남아 있는 건. 여기 있는 동안 날이
+          셉니다.
         </Bullet>
         <Bullet>
           <span className="inline-flex items-center gap-1">

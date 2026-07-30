@@ -117,7 +117,7 @@ create table ip.progress_entries (
   -- 메일로 주고받은 기록이면 방향, 내부 결정이면 null
   direction   text check (direction in ('발신', '수신')),
   counterpart text not null default '',            -- 대리인 / 대표 …
-  -- 공이 누구에게 있는지. 미결 액션을 따로 등록하지 않기 위한 장치.
+  -- 지금 누구 차례인지. 미결 액션을 따로 등록하지 않기 위한 장치.
   next_turn   text not null default 'none' check (next_turn in ('us', 'firm', 'none')),
   due_on      date,
   -- 단계에 따라 채워지는 값
