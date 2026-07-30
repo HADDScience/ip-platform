@@ -163,8 +163,21 @@ const TOOLS = [
   },
   {
     name: "add_progress",
-    description:
-      "진행 기록을 남긴다. 이 도구 하나로 지식재산권 목록(단계·번호·날짜)까지 함께 갱신된다 — 지식재산권 목록을 따로 고치지 않는다. 메일이 근거라면 받은 메일이든 보낸 메일이든 그 내용을 note 에 옮기고 direction 을 채운 뒤 source 를 'mail' 로 둔다. 결과로 기록_id 와 지식재산권 목록의 이전·이후 상태를 돌려주므로 정말 반영됐는지 그 자리에서 확인할 수 있다 — 기록_id 가 있으면 저장된 것이니 같은 내용을 다시 쓰지 않는다.",
+    description: [
+      "진행 기록을 남긴다. 이 도구 하나로 지식재산권 목록(단계·번호·날짜)까지 함께 갱신된다 — 지식재산권 목록을 따로 고치지 않는다.",
+      "메일이 근거라면 받은 메일이든 보낸 메일이든 그 내용을 note 에 옮기고 direction 을 채운 뒤 source 를 'mail' 로 두고, raw 에 근거가 된 원문을 그대로 붙인다.",
+      "",
+      "【인용된 원본은 근거가 아니다 — 가장 자주 틀리는 곳】",
+      "회신 메일에는 우리가 보낸 원본이 「--------- 원본 메일 ---------」 아래에 함께 실려 온다. 그 아래는 이미 기록된 과거이거나 우리가 쓴 글이다.",
+      "**구분선 위, 새로 온 몇 줄만 이 기록의 근거다.** 아래에서 등록가능성·지정상품·권고사항을 끌어올려 상대가 말한 것처럼 적으면 없던 사실을 만든다.",
+      "새로 온 부분이 인사와 「검토하고 답변드리겠습니다」뿐이라면, 기록할 사실도 그것뿐이다.",
+      "",
+      "【공이 누구에게 있는지】",
+      "상대가 회신을 예고했으면(「답변드리겠습니다」·「검토 후 연락드리겠습니다」) nextTurn='firm' 이다. 상대가 우리에게 물었으면(「진행하시겠습니까」·「회신 부탁드립니다」) 'us' 다.",
+      "받은 메일이라는 이유로 'us' 를 고르지 않는다 — 방향과 차례는 다른 것이다.",
+      "",
+      "결과로 기록_id 와 지식재산권 목록의 이전·이후 상태를 돌려주므로 정말 반영됐는지 그 자리에서 확인할 수 있다 — 기록_id 가 있으면 저장된 것이니 같은 내용을 다시 쓰지 않는다.",
+    ].join("\n"),
     inputSchema: {
       type: "object",
       properties: {
@@ -186,13 +199,26 @@ const TOOLS = [
           type: "string",
           enum: ["us", "firm", "none"],
           description:
-            "공이 누구에게 있는지. us=회신 필요, firm=상대 회신 대기, none=대기 없음",
+            "공이 누구에게 있는지. us=회신 필요, firm=상대 회신 대기, none=대기 없음. 상대가 답을 예고했으면 'firm', 상대가 우리에게 물었으면 'us'. 받은 메일이라는 이유로 'us' 를 고르지 않는다.",
         },
         dueOn: { type: "string", description: "기한 YYYY-MM-DD" },
         appNo: { type: "string", description: "출원번호" },
         regNo: { type: "string", description: "등록번호" },
-        probability: { type: "number", description: "등록가능성 %" },
-        note: { type: "string", description: "메모. 메일 본문 요약을 넣는다." },
+        probability: {
+          type: "number",
+          description:
+            "등록가능성 %. **이 메일에서 상대가 새로 말한 숫자만** 넣는다. 인용된 원본이나 지난 검토의견에 있던 숫자를 여기 옮기면 그 메일이 그 말을 한 것처럼 남는다.",
+        },
+        note: {
+          type: "string",
+          description:
+            "무슨 일이 있었는지. 새로 온 부분에 적힌 것만 쓴다. 상대가 말하지 않은 권고·제안을 채우지 않는다.",
+        },
+        raw: {
+          type: "string",
+          description:
+            "근거가 된 원문 그대로. 메일이면 새로 온 부분(인용된 원본 제외)을 붙인다. 나중에 「정말 그렇게 적혀 있었나」를 사람이 확인하는 유일한 길이므로, source 가 'mail' 이면 반드시 채운다.",
+        },
         source: {
           type: "string",
           enum: ["manual", "mail"],
@@ -342,7 +368,9 @@ async function runTool(
     const { data: history, error: histError } = await db
       .from("progress_entries")
       .select(
-        "occurred_on, stage, direction, counterpart, next_turn, due_on, app_no, reg_no, name, holder, probability, note, source"
+        // raw(근거 원문)를 함께 준다. 요약만 돌려주면 「그렇게 적혀 있었나」를
+        // 되짚을 수 없고, 지어낸 요약이 그대로 사실로 굳는다.
+        "occurred_on, stage, direction, counterpart, next_turn, due_on, app_no, reg_no, name, holder, probability, note, source, raw"
       )
       .eq("entity_kind", kind)
       .eq("entity_id", id)
@@ -456,7 +484,9 @@ async function runTool(
         probability: args.probability ?? null,
         note: (args.note as string) ?? "",
         source,
-        raw: null,
+        // 근거 원문. 요약만 남기면 「정말 그렇게 적혀 있었나」를 아무도 확인할 수
+        // 없다 — 지어낸 요약이 한번 들어오면 그 뒤로는 그것이 사실이 된다.
+        raw: (args.raw as string) ?? null,
       })
       .select("id, occurred_on, stage, direction, next_turn, source")
       .single()
@@ -497,6 +527,12 @@ async function runTool(
               : "단계가 바뀌지 않았습니다. 예상과 다르면 get_ip 로 확인하세요.",
           확인_방법:
             "기록_id 가 있으면 저장된 것입니다. 같은 내용을 다시 쓰면 중복 기록이 생깁니다 — 실패로 보이더라도 먼저 get_ip 로 확인하세요.",
+          // 근거가 없으면 요약이 곧 사실이 되어버린다. 조용히 넘기지 않는다.
+          ...(source === "mail" && !args.raw
+            ? {
+                주의: "메일 기록인데 raw(근거 원문)가 비어 있습니다. 나중에 사람이 확인할 길이 없습니다 — 새로 온 부분을 raw 에 담아 다시 기록하거나, 이 기록을 지우고 다시 남기세요.",
+              }
+            : {}),
           기록자: caller.displayName ?? caller.email,
         },
         null,
