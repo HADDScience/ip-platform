@@ -180,7 +180,7 @@ const GUIDE_ARG = {
   guide: {
     type: "string",
     description:
-      "read_guide 가 알려준 확인 코드. 이 값이 없으면 기록되지 않는다 — 지침을 한 번은 읽고 쓰게 하려는 장치다.",
+      "read_guide 가 알려준 확인 코드. 지침을 한 번은 읽고 쓰게 하려는 장치다. 이 인자를 보낼 수 없는 도구라면 비워도 된다 — 첫 시도는 지침과 함께 거절되고, 같은 호출을 그대로 다시 보내면 저장된다.",
   },
 } as const
 
@@ -389,29 +389,78 @@ const WRITE_TOOLS = new Set(["add_progress", "correct_ip", "create_ip"])
 
 type ToolResult = { text: string } | { error: string }
 
+/** 이 사람에게 지금 지침을 보여줬다고 적어 둔다. */
+async function rememberGuideShown(userId: string): Promise<void> {
+  await db
+    .from("mcp_guide_reads")
+    .upsert(
+      { user_id: userId, ack: GUIDE_ACK, shown_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    )
+}
+
+/**
+ * 지침을 지나오지 않은 쓰기를 막는다. 막힐 일이 없으면 null 을 돌려준다.
+ *
+ * 왜 확인 코드만으로 판단하지 않나
+ *  커넥터가 들고 있는 도구 스키마는 처음 붙일 때 받아 둔 사본이다. 서버를 새로
+ *  올려도 그 사본은 바뀌지 않고, 클라이언트는 사본에 없는 인자를 보내지 못한다.
+ *  실제로 ChatGPT 가 「guide 인자를 전달할 수 있는 항목이 없어 기록을 완료할 수
+ *  없다」며 멈췄다. 막는 장치가 일을 못 하게 만드는 장치가 되면 안 된다.
+ *
+ * 그래서 두 길을 모두 받는다
+ *  * 확인 코드가 맞으면 그대로 통과 — 한 번의 호출로 끝난다.
+ *  * 코드가 없으면 첫 시도를 거절하면서 지침 전문을 돌려주고, 보여줬다고 적는다.
+ *    같은 호출을 다시 보내면 그때는 저장된다.
+ *  느슨해 보이지만 목적은 그대로다. 두 번째 호출이 오는 시점에 지침은 이미 그
+ *  대화 안에 있다 — 「무조건 한 번은 읽는다」가 지켜진다.
+ */
+async function guideGate(
+  userId: string,
+  given: unknown
+): Promise<ToolResult | null> {
+  if (given === GUIDE_ACK) return null
+
+  const { data } = await db
+    .from("mcp_guide_reads")
+    .select("ack")
+    .eq("user_id", userId)
+    .maybeSingle()
+  // 지침이 바뀌면(ack 이 달라지면) 다시 보여준다. 한 번 읽고 영원히 통과가 되면
+  // 규칙을 고쳐도 옛 방식 그대로 쓰게 된다.
+  if (data?.ack === GUIDE_ACK) return null
+
+  await rememberGuideShown(userId)
+  return {
+    error: [
+      given
+        ? `확인 코드가 맞지 않습니다(받은 값: ${String(given)}). 지침이 바뀌었습니다.`
+        : "이번 기록은 저장하지 않았습니다. 쓰기 전에 사용 지침을 한 번 읽어야 합니다.",
+      "",
+      "아래 지침을 읽고 **같은 호출을 그대로 다시 보내면 저장됩니다.** guide 인자를 보낼 수 없는 도구라면 그대로 다시 보내기만 하면 됩니다 — 이 안내를 이미 받았다는 것을 서버가 기억합니다.",
+      "다시 보내기 전에, 지침에 비추어 값이 맞는지 보세요. 특히 두 가지가 자주 틀립니다.",
+      "  · 근거 — 인용된 원본에서 끌어온 값이 아닌지 (등록가능성·지정상품·권고사항)",
+      "  · 차례 — 상대가 답을 예고했다면 us 가 아니라 firm",
+      "",
+      "─".repeat(20),
+      GUIDE,
+    ].join("\n"),
+  }
+}
+
 async function runTool(
   name: string,
   args: Record<string, unknown>,
   caller: Caller
 ): Promise<ToolResult> {
-  if (name === "read_guide") return { text: GUIDE }
+  if (name === "read_guide") {
+    await rememberGuideShown(caller.userId)
+    return { text: GUIDE }
+  }
 
-  // 지침을 지나오지 않은 쓰기는 받지 않는다. 막기만 하면 부르는 쪽이 무엇을
-  // 해야 할지 모르니, 오류에 지침 전문을 실어 보낸다 — read_guide 를 건너뛰었더라도
-  // 이 오류를 읽는 순간 지침은 모델의 눈을 지나간다. 그다음 재시도는 옳게 온다.
-  if (WRITE_TOOLS.has(name) && args.guide !== GUIDE_ACK) {
-    return {
-      error: [
-        args.guide
-          ? `확인 코드가 맞지 않습니다(받은 값: ${String(args.guide)}). 지침이 바뀌었을 수 있습니다.`
-          : "쓰기 전에 사용 지침을 한 번 읽어야 합니다.",
-        "아래 지침을 읽고, 마지막의 확인 코드를 guide 인자에 넣어 같은 호출을 다시 보내세요.",
-        "지침에 비추어 넘기려던 값이 잘못됐다면 고쳐서 보내세요 — 특히 근거(인용된 원본인지 새로 온 부분인지)와 차례(us·firm)를 다시 보세요.",
-        "",
-        "─".repeat(20),
-        GUIDE,
-      ].join("\n"),
-    }
+  if (WRITE_TOOLS.has(name)) {
+    const blocked = await guideGate(caller.userId, args.guide)
+    if (blocked) return blocked
   }
 
   if (name === "list_stages") {
