@@ -378,6 +378,23 @@ function HistoryList({
               {h.note}
             </p>
           ) : null}
+
+          {/*
+            근거 원문. AI 도구가 메일에서 옮겨 적을 때 요약만 남기면 「정말
+            그렇게 적혀 있었나」를 확인할 길이 없다 — 실제로 인용된 원본을
+            새 메일로 착각해 없던 사실이 적힌 일이 있었다. 접어 두되, 한 번에
+            펼칠 수 있게 한다.
+          */}
+          {h.raw ? (
+            <details className="pl-20">
+              <summary className="w-fit cursor-pointer text-[11px] text-muted-foreground transition-colors select-none hover:text-foreground">
+                근거 원문
+              </summary>
+              <p className="mt-1 border-l-2 border-border/60 bg-muted/40 py-1.5 pl-2 text-[11px]/relaxed whitespace-pre-wrap text-muted-foreground">
+                {h.raw}
+              </p>
+            </details>
+          ) : null}
         </li>
       ))}
 
