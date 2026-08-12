@@ -17,6 +17,7 @@ import { StatusBadge } from "@/components/ip/status-badge"
 import { ExportViewButton } from "@/components/ip/export-button"
 import { StageOrderDialog } from "@/components/ip/stage-order-dialog"
 import { CorrectionForm, ProgressHistory } from "@/components/ip/record-detail"
+import { MailDialog } from "@/components/ip/mail-thread"
 import { useData } from "@/components/ip/data-provider"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useToday } from "@/hooks/use-today"
@@ -518,6 +519,22 @@ export function RegisterView() {
                             />
                             <Detail label="비고" value={row.note || null} />
                           </dl>
+
+                          {/*
+                            메일 원문은 여기서 펼치지 않는다 — 표 한가운데서
+                            길어지면 아래 건들이 화면 밖으로 밀려난다.
+                          */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <MailDialog
+                              kind={kind}
+                              id={row.id}
+                              title={
+                                isPatent
+                                  ? (row as Patent).title
+                                  : (row as Trademark).name
+                              }
+                            />
+                          </div>
 
                           {canWrite ? (
                             <CorrectionForm

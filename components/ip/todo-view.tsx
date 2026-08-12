@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { PageHeader } from "@/components/ip/page-header"
 import { StatusBadge, StaleDays } from "@/components/ip/status-badge"
+import { TaskDialog } from "@/components/ip/task-dialog"
 import { useData } from "@/components/ip/data-provider"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useToday } from "@/hooks/use-today"
@@ -34,6 +35,8 @@ export function TodoView() {
   const { trademarks, patents, progress, refresh } = useData()
   const { canWrite } = useAuth()
   const [busy, setBusy] = useState<string | null>(null)
+  // 상세를 연 기록. 객체가 아니라 id 로 들고 있어야 저장 뒤에도 최신 값을 본다.
+  const [picked, setPicked] = useState<string | null>(null)
 
   const label = useMemo(() => {
     const map = new Map<string, string>()
@@ -114,6 +117,7 @@ export function TodoView() {
         <CardHeader>
           <CardTitle>회신 필요 {ours.length}건</CardTitle>
           <CardDescription>
+            항목을 누르면 주고받은 메일과 이 건의 값을 함께 볼 수 있습니다.
             회신을 기록하면 목록에서 저절로 빠집니다.
           </CardDescription>
         </CardHeader>
@@ -126,7 +130,16 @@ export function TodoView() {
               return (
                 <div
                   key={e.id}
-                  className="flex flex-wrap items-center gap-x-2.5 gap-y-1 py-2.5 first:pt-0"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${label.get(`${e.entityKind}:${e.entityId}`) ?? e.entityId} 상세 보기`}
+                  onClick={() => setPicked(e.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key !== "Enter" && ev.key !== " ") return
+                    ev.preventDefault()
+                    setPicked(e.id)
+                  }}
+                  className="-mx-2 flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-2.5 transition-colors first:pt-0 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <StatusBadge status={e.stage} />
                   <span className="min-w-0 flex-1 truncate font-medium">
@@ -157,7 +170,11 @@ export function TodoView() {
                       size="xs"
                       variant="ghost"
                       disabled={busy === e.id}
-                      onClick={() => void handOver(e.id)}
+                      onClick={(ev) => {
+                        // 줄 전체가 상세를 여는 자리라 여기서 멈춘다.
+                        ev.stopPropagation()
+                        void handOver(e.id)
+                      }}
                     >
                       처리함
                     </Button>
@@ -173,13 +190,25 @@ export function TodoView() {
         <Card>
           <CardHeader>
             <CardTitle>상대 회신 대기 {theirs.length}건</CardTitle>
-            <CardDescription>오래 걸리면 독촉할 때입니다.</CardDescription>
+            <CardDescription>
+              오래 걸리면 독촉할 때입니다. 항목을 누르면 주고받은 메일을 볼 수
+              있습니다.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col divide-y divide-border/60">
             {theirs.map((e) => (
               <div
                 key={e.id}
-                className="flex flex-wrap items-center gap-x-2.5 py-2 first:pt-0"
+                role="button"
+                tabIndex={0}
+                aria-label={`${label.get(`${e.entityKind}:${e.entityId}`) ?? e.entityId} 상세 보기`}
+                onClick={() => setPicked(e.id)}
+                onKeyDown={(ev) => {
+                  if (ev.key !== "Enter" && ev.key !== " ") return
+                  ev.preventDefault()
+                  setPicked(e.id)
+                }}
+                className="-mx-2 flex cursor-pointer flex-wrap items-center gap-x-2.5 px-2 py-2 transition-colors first:pt-0 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <StatusBadge status={e.stage} />
                 <span className="min-w-0 flex-1 truncate">
@@ -256,6 +285,8 @@ export function TodoView() {
           </CardContent>
         </Card>
       ) : null}
+
+      <TaskDialog entryId={picked} onClose={() => setPicked(null)} />
     </div>
   )
 }

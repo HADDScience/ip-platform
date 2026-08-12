@@ -34,6 +34,7 @@ export function CorrectionForm({
   current,
   stageOptions,
   onSaved,
+  inline = false,
 }: {
   entityKind: "trademark" | "patent"
   entityId: string
@@ -48,8 +49,13 @@ export function CorrectionForm({
   /** 고를 수 있는 단계. 파이프라인 순서대로 들어온다. */
   stageOptions: string[]
   onSaved: () => Promise<void>
+  /**
+   * 이미 「고치러 온 자리」에 놓을 때. 상세 화면처럼 편집이 목적인 곳에서는
+   * 버튼을 한 번 더 누르게 하지 않는다.
+   */
+  inline?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(inline)
   const [draft, setDraft] = useState<Correction>({})
   const [reason, setReason] = useState("")
   const [busy, setBusy] = useState(false)
@@ -200,7 +206,8 @@ export function CorrectionForm({
                 reason
               )
               await onSaved()
-              setOpen(false)
+              // 편집이 목적인 자리에서는 저장했다고 양식이 사라지면 안 된다.
+              if (!inline) setOpen(false)
               setDraft({})
               setReason("")
             } catch (e) {
@@ -212,14 +219,16 @@ export function CorrectionForm({
         >
           {busy ? "저장 중…" : "저장"}
         </Button>
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={busy}
-          onClick={() => setOpen(false)}
-        >
-          취소
-        </Button>
+        {inline ? null : (
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => setOpen(false)}
+          >
+            취소
+          </Button>
+        )}
       </div>
     </div>
   )

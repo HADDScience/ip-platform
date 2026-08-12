@@ -425,6 +425,25 @@ export async function setNextTurn(id: string, nextTurn: NextTurn) {
   check(error)
 }
 
+/**
+ * 차례와 기한만 고친다.
+ *
+ * 「밀린 IP 업무」 상세에서 쓴다. 단계·번호처럼 사실을 말하는 칸은 건드리지
+ * 않는다 — 그쪽은 값 정정(correctRecord)이나 새 기록의 몫이다. 여기서 바꾸는
+ * 것은 "이 일이 아직 우리 차례인가"와 "언제까지인가"뿐이다.
+ */
+export async function setTurnAndDue(
+  id: string,
+  nextTurn: NextTurn,
+  dueOn: string | null
+) {
+  const { error } = await supabase
+    .from("progress_entries")
+    .update({ next_turn: nextTurn, due_on: dueOn })
+    .eq("id", id)
+  check(error)
+}
+
 export async function saveTrademark(t: Trademark, isNew: boolean) {
   const row = {
     id: t.id,
