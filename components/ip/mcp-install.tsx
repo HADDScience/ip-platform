@@ -308,28 +308,25 @@ export function McpInstall({
         <DialogTrigger
           className={cn(
             // 테두리를 도는 빛이 버튼 밖으로 새지 않도록 기준을 잡아 준다.
-            "group relative isolate inline-flex items-center gap-1.5 font-medium transition-colors",
-            trigger === "header"
-              ? "h-7 rounded-none bg-gradient-to-r from-sky-500/10 via-violet-500/10 to-pink-500/10 px-2.5 text-[11px] ring-1 ring-foreground/15 hover:from-sky-500/20 hover:via-violet-500/20 hover:to-pink-500/20"
-              : "px-2 py-1 text-[11px] text-muted-foreground ring-1 ring-foreground/15 hover:text-foreground"
+            "group relative isolate inline-flex h-7 items-center gap-1.5 rounded-none px-2.5 text-[11px] font-medium ring-1 ring-foreground/15 transition-colors",
+            "bg-gradient-to-r from-sky-500/10 via-violet-500/10 to-pink-500/10",
+            "hover:from-sky-500/20 hover:via-violet-500/20 hover:to-pink-500/20"
           )}
         >
+          <AiMark className="size-4" />
+          {/* 상단바는 자리가 좁다. 좁은 화면에서는 표식만 남긴다. */}
+          <span
+            className={cn(
+              "bg-gradient-to-r from-sky-600 via-violet-600 to-pink-600 bg-clip-text text-transparent dark:from-sky-300 dark:via-violet-300 dark:to-pink-300",
+              trigger === "header" && "hidden sm:inline"
+            )}
+          >
+            AI 연결하기
+          </span>
           {trigger === "header" ? (
-            <>
-              <AiMark className="size-4" />
-              {/* 상단바는 자리가 좁다. 좁은 화면에서는 표식만 남긴다. */}
-              <span className="hidden bg-gradient-to-r from-sky-600 via-violet-600 to-pink-600 bg-clip-text text-transparent sm:inline dark:from-sky-300 dark:via-violet-300 dark:to-pink-300">
-                AI 연결하기
-              </span>
-              <span className="sr-only sm:hidden">AI 연결하기</span>
-            </>
-          ) : (
-            <>
-              <AiMark className="size-3.5" />
-              AI 연결하기 (MCP)
-            </>
-          )}
-          <BorderBeam size={trigger === "header" ? 36 : 48} duration={5} />
+            <span className="sr-only sm:hidden">AI 연결하기</span>
+          ) : null}
+          <BorderBeam size={40} duration={5} />
         </DialogTrigger>
       )}
 
