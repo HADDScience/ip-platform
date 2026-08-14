@@ -125,9 +125,9 @@ async function resolveCaller(request: Request): Promise<Caller | null> {
  * 부르는 쪽은 바뀐 지침을 다시 읽게 된다. 말을 다듬은 정도로는 바꾸지 않는다 —
  * 알아야 할 것이 그대로인데 코드를 흔들면 멀쩡한 호출만 막힌다.
  */
-const GUIDE_ACK = "guide-2026-07-30-r1"
+const GUIDE_ACK = "guide-2026-08-14-r1"
 
-const GUIDE = [
+const GUIDE_TEMPLATE = [
   "HADD IP 사용 지침 — 쓰기 전에 반드시 한 번 읽는다",
   "",
   "■ 1. 기록이 원본이다",
@@ -162,13 +162,40 @@ const GUIDE = [
   "**ID·단계를 사용자에게 되묻지 않는다.** 사용자는 「VIVOFRAME」처럼 이름만 안다 — list_ip 로 찾는 것이 도구의 일이다. 물어보면 사람이 우리 내부 번호를 찾아 적어야 하고, 그러면 이 도구를 쓸 이유가 없어진다.",
   "새 건을 만들기 전에는 list_ip 로 같은 건을 찾아본다 — 이름만 다르게 적힌 같은 건을 둘로 만들면 합치기 어렵다.",
   "",
-  "■ 8. 쓴 뒤에 확인한다",
+  "■ 8. 권리를 이전받았을 때 (양수·승계)",
+  "「뇌연구원에서 이전받았다」처럼 **주인이 바뀐 것**은 진행이 아니다. 출원→심사→등록이라는 진도가 움직인 것이 아니므로 stage 는 **지금 단계를 그대로** 적는다(get_ip 의 현재.status). 「이전」이라는 단계는 없다 — 찾지 말고 사용자에게 묻지도 않는다.",
+  "add_progress: date=이전등록일 · stage=지금 단계 · counterpart=넘겨준 쪽 · nextTurn='none' · note 에 누구에게서 이전받았는지.",
+  "이어서 correct_ip 로 holder(출원인·보유자)를 「{ORG}」 로 바꾼다. 이것을 빠뜨리면 목록에는 계속 남의 이름이 남는다. 우리 이름은 여기 적혀 있으니 사용자에게 묻지 않는다.",
+  "**이전일을 등록일로 만들지 않는다.** 단계가 '등록'인 건에 '등록' 기록을 남기면, 등록일이 비어 있을 때 그 날짜가 그대로 등록일이 된다. get_ip 의 현재.registered_on 을 먼저 본다 — 비어 있으면 **원 등록일(특허청 원부의 등록일)로 등록 기록을 먼저 남기고** 그다음 이전 기록을 남긴다. 원 등록일을 모르면 그것만 사용자에게 묻는다.",
+  "",
+  "■ 9. 쓴 뒤에 확인한다",
   "응답의 목록_반영을 읽는다. 지난 날짜로 기록하면 단계가 그대로인 것이 정상이다 — 지난 일로 현재를 되돌리지 않기 때문이다. 실패로 보고 다시 쓰면 중복 기록만 쌓인다.",
   "기록_id 가 돌아왔으면 저장된 것이다.",
   "",
   `■ 확인 코드: ${GUIDE_ACK}`,
   "쓰기 도구(add_progress · correct_ip · create_ip)의 guide 인자에 이 값을 그대로 넣는다.",
 ].join("\n")
+
+/**
+ * 우리 조직 이름을 지침에 박아 넣는다.
+ *
+ * 권리를 이전받으면 출원인을 우리 이름으로 바꿔야 하는데, 그 이름을 모르면
+ * 모델은 사용자에게 묻는다 — 실제로 저비용 모델 3대가 전부 「우리 기관명이
+ * 뭐냐」를 되물었다. ID·단계를 되묻지 않게 만든 것과 같은 이유로, 서버가
+ * 아는 사실은 서버가 알려준다. 조회에 실패해도 지침은 나가야 하므로
+ * 자리표시자만 지운다.
+ */
+async function guideText(): Promise<string> {
+  const { data } = await db
+    .from("org_meta")
+    .select("org")
+    .eq("id", 1)
+    .maybeSingle()
+  return GUIDE_TEMPLATE.replace(
+    "{ORG}",
+    (data?.org as string | undefined) ?? "우리 조직"
+  )
+}
 
 /** 클라이언트가 시스템 프롬프트에 실어주는 자리. 짧게 길만 알려준다. */
 const INSTRUCTIONS = [
@@ -282,7 +309,7 @@ const TOOLS = [
         stage: {
           type: "string",
           description:
-            "단계. **모르면 list_stages 를 먼저 부른다** — 여기에 없는 값은 거절된다. 사용자에게 단계 이름을 묻지 않는다.",
+            "단계. **모르면 list_stages 를 먼저 부른다** — 여기에 없는 값은 거절된다. 사용자에게 단계 이름을 묻지 않는다. 단계가 움직이지 않는 사건(권리 이전·양수처럼 주인만 바뀐 것)이면 get_ip 로 본 **지금 단계를 그대로** 적는다.",
         },
         direction: {
           type: "string",
@@ -445,7 +472,7 @@ async function guideGate(
       "  · 차례 — 상대가 답을 예고했다면 us 가 아니라 firm",
       "",
       "─".repeat(20),
-      GUIDE,
+      await guideText(),
     ].join("\n"),
   }
 }
@@ -457,7 +484,7 @@ async function runTool(
 ): Promise<ToolResult> {
   if (name === "read_guide") {
     await rememberGuideShown(caller.userId)
-    return { text: GUIDE }
+    return { text: await guideText() }
   }
 
   if (WRITE_TOOLS.has(name)) {
@@ -614,7 +641,11 @@ async function runTool(
     const table = kind === "trademark" ? "trademarks" : "patents"
     // 쓰기 전 지식재산권 목록을 떠 둔다. 쓴 뒤와 견줘야 "정말 바뀌었나"를 부르는 쪽이 볼 수
     // 있다. 진행 기록은 들어갔는데 지식재산권 목록은 안 움직이는 경우가 실제로 있다.
-    const LEDGER = "status, ref_date, app_no, reg_no"
+    // 출원일·등록일도 함께 본다. 이 두 칸은 「단계가 출원/등록인 기록」이 비어 있을
+    // 때만 채우는데, 그 사실이 응답에 안 보이면 권리 이전처럼 단계가 안 움직이는
+    // 기록이 등록일을 채워도 아무도 눈치채지 못한다. 지침 8·9 가 「쓴 뒤에 확인하라」고
+    // 시키려면 확인할 것이 응답에 있어야 한다.
+    const LEDGER = "status, ref_date, app_no, reg_no, filed_on, registered_on"
     const { data: found, error: findError } = await db
       .from(table)
       .select(LEDGER)
