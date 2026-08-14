@@ -13,6 +13,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
+import { McpInstall } from "@/components/ip/mcp-install"
 import { Tutorial } from "@/components/ip/tutorial"
 import { useAuth } from "@/components/ip/auth-gate"
 import { useData } from "@/components/ip/data-provider"
@@ -76,6 +77,12 @@ export function SiteHeader() {
               className={reloading ? "animate-spin" : undefined}
             />
           </Button>
+
+          {/*
+            어느 화면에 있든 도구를 붙일 수 있게 상단바에 둔다. 기록하기 화면에도
+            같은 버튼이 있지만, 그 화면까지 가야만 보이는 것이 문제였다.
+          */}
+          <McpInstall trigger="header" />
 
           <Button size="sm" onClick={onExportAll} disabled={busy}>
             <HugeiconsIcon icon={Download04Icon} strokeWidth={2} />

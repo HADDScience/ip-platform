@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { McpTokenPanel } from "@/components/ip/mcp-token-panel"
+import { CopyRow } from "@/components/ip/copy-row"
+import { AiMark } from "@/components/ip/ai-mark"
+import { BorderBeam } from "@/components/magicui/border-beam"
+import { cn } from "@/lib/utils"
 
 /**
  * AI 도구 설치 안내.
@@ -265,10 +269,16 @@ function buildClients(token: string | null): Client[] {
 export function McpInstall({
   open,
   onOpenChange,
+  trigger = "inline",
 }: {
   /** 넘기면 바깥에서 여닫는다. 첫 안내가 마지막 걸음에서 이 창으로 넘긴다. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /**
+   * 버튼 모양. `inline` 은 기록하기 화면의 글자 버튼, `header` 는 상단바에
+   * 아이콘과 함께 서는 쪽이다. 여는 창은 어느 쪽이든 같다.
+   */
+  trigger?: "inline" | "header"
 } = {}) {
   const controlled = open !== undefined
 
@@ -295,8 +305,31 @@ export function McpInstall({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 바깥에서 여닫을 때는 버튼이 필요 없다. 두면 화면에 유령 버튼이 남는다. */}
       {controlled ? null : (
-        <DialogTrigger className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground">
-          AI 도구 설치하기 (MCP)
+        <DialogTrigger
+          className={cn(
+            // 테두리를 도는 빛이 버튼 밖으로 새지 않도록 기준을 잡아 준다.
+            "group relative isolate inline-flex items-center gap-1.5 font-medium transition-colors",
+            trigger === "header"
+              ? "h-7 rounded-none bg-gradient-to-r from-sky-500/10 via-violet-500/10 to-pink-500/10 px-2.5 text-[11px] ring-1 ring-foreground/15 hover:from-sky-500/20 hover:via-violet-500/20 hover:to-pink-500/20"
+              : "px-2 py-1 text-[11px] text-muted-foreground ring-1 ring-foreground/15 hover:text-foreground"
+          )}
+        >
+          {trigger === "header" ? (
+            <>
+              <AiMark className="size-4" />
+              {/* 상단바는 자리가 좁다. 좁은 화면에서는 표식만 남긴다. */}
+              <span className="hidden bg-gradient-to-r from-sky-600 via-violet-600 to-pink-600 bg-clip-text text-transparent sm:inline dark:from-sky-300 dark:via-violet-300 dark:to-pink-300">
+                AI 연결하기
+              </span>
+              <span className="sr-only sm:hidden">AI 연결하기</span>
+            </>
+          ) : (
+            <>
+              <AiMark className="size-3.5" />
+              AI 연결하기 (MCP)
+            </>
+          )}
+          <BorderBeam size={trigger === "header" ? 36 : 48} duration={5} />
         </DialogTrigger>
       )}
 
@@ -431,47 +464,5 @@ export function McpInstall({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/**
- * 값 한 줄과 복사 버튼.
- *
- * 「복사됨」 상태를 스스로 들고 있다. 부모가 들고 있으면 표 안처럼 미리 만들어
- * 둔 트리에는 넣을 수 없어서다.
- */
-function CopyRow({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // 클립보드가 막힌 환경(비 HTTPS 등). 값은 화면에 그대로 보이니 손으로 복사한다.
-    }
-  }
-
-  return (
-    <div className="flex items-stretch gap-1">
-      {/* Codex 처럼 두 줄짜리 커맨드가 있어 줄바꿈은 살린다. */}
-      <code className="min-w-0 flex-1 overflow-x-auto bg-muted px-2 py-1.5 text-[10.5px] whitespace-pre text-foreground">
-        {text}
-      </code>
-      <button
-        type="button"
-        onClick={() => void onCopy()}
-        aria-label="복사"
-        className="flex shrink-0 items-center gap-1 px-2 text-[10.5px] font-medium text-muted-foreground ring-1 ring-foreground/15 transition-colors hover:text-foreground"
-      >
-        <HugeiconsIcon
-          icon={copied ? Tick02Icon : Copy01Icon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
-        {copied ? "복사됨" : "복사"}
-      </button>
-    </div>
   )
 }
