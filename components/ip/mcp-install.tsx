@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { omnisMcpUrl } from "@/lib/omnis"
 import Link from "next/link"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -43,12 +44,12 @@ import { cn } from "@/lib/utils"
  * 그래서 도구별 탭으로 나눈다. 사람은 자기가 쓰는 도구 하나만 알면 된다.
  *
  * claude.ai 만 예외로 잠가 둔다. 커넥터가 인가 서버 주소를 호스트 루트에서만
- * 찾는데 우리 서버는 Supabase 함수 경로 아래라 그 자리를 쓸 수 없다. 절차를
+ * 찾는데 우리 서버는 Omnis 의 /api/ip-mcp 아래라 그 자리를 쓸 수 없다. 절차를
  * 적어 두면 따라 하다 실패할 뿐이라, 탭을 막고 이유만 툴팁으로 남긴다.
  */
 
 /** 서버 주소. 값 자체는 브라우저 번들에 이미 들어 있는 공개 값이다. */
-const MCP_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}/functions/v1/ip-mcp`
+const MCP_URL = omnisMcpUrl()
 
 /** MCP 클라이언트가 서버를 부르는 이름. 딥링크와 커맨드에서 같아야 한다. */
 const SERVER_NAME = "hadd-ip"
@@ -175,7 +176,7 @@ function buildClients(token: string | null): Client[] {
       id: "claude-ai",
       name: "claude.ai",
       disabled:
-        "claude.ai 웹 커넥터에는 붙지 않습니다. 커넥터가 인가 서버 주소를 호스트 루트(/.well-known/…)에서만 찾는데, 이 서버는 Supabase 함수 경로 아래에 있어 그 자리를 쓸 수 없습니다 (Anthropic claude-ai-mcp #341·#367·#376 로 보고된 문제). Claude 를 쓰신다면 「Claude Code」 탭의 커맨드로 붙이면 됩니다 — Claude Desktop 도 같은 방식입니다.",
+        "claude.ai 웹 커넥터에는 붙지 않습니다. 커넥터가 인가 서버 주소를 호스트 루트(/.well-known/…)에서만 찾는데, 이 서버는 Omnis 의 /api/ip-mcp 아래에 있어 그 자리를 쓸 수 없습니다 (Anthropic claude-ai-mcp #341·#367·#376 로 보고된 문제). Claude 를 쓰신다면 「Claude Code」 탭의 커맨드로 붙이면 됩니다 — Claude Desktop 도 같은 방식입니다.",
       prompt: "",
     },
     {

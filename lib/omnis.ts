@@ -211,6 +211,18 @@ export async function api<T>(
   return body as T
 }
 
+/**
+ * MCP 서버 주소. 「AI 연결하기」 안내가 이 값을 그대로 보여준다.
+ *
+ * 화면이 주소를 따로 조립하지 않게 여기서 낸다 — 예전에 그렇게 뒀다가,
+ * Supabase 를 걷어내며 환경변수 하나가 사라지자 안내문이 조용히 반쪽짜리
+ * 경로(`/functions/v1/ip-mcp`)를 보여줬다. 사람은 화면에 적힌 것을 그대로
+ * 복사하므로, 틀린 주소를 보여주는 것은 주소가 없는 것보다 나쁘다.
+ */
+export function omnisMcpUrl(): string {
+  return `${OMNIS_ORIGIN}/api/ip-mcp`
+}
+
 /** Omnis 의 계정 설정 — 비밀번호·소셜 연결은 저기서 관리한다. */
 export function omnisSettingsUrl(): string {
   return `${OMNIS_ORIGIN}/settings`
