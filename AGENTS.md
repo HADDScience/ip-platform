@@ -27,3 +27,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
   styles/theme 은 그 워크북에서 뽑은 것이라 손으로 고치지 않는다. `lib/excel.ts` 의 `style`·
   `dxf` 숫자는 그 안의 인덱스를 가리키므로 열을 넣고 뺄 때 함께 맞춰야 한다.
 - 커밋 전에 `pnpm lint`(경고 포함 0)와 `pnpm build` 가 통과해야 한다.
+
+## 데이터·인증 이전 문서
+
+이 앱의 데이터(`ip` 스키마)와 로그인은 Supabase 에서 Omnis 로 옮기는 중이다.
+구조·도메인 규칙·함정은 **Omnis 저장소**(`~/omnis-deploy`)의 `mydocs/` 에 있다.
+
+| 문서 | 무엇 |
+|---|---|
+| `mydocs/tech/ip-schema.md` | ip 스키마와 그 안의 도메인 규칙 (출원일·등록일 계산) |
+| `mydocs/troubleshootings/supabase-limits.md` | 왜 옮기는가 |
+| `mydocs/troubleshootings/migration-traps.md` | 이미 밟은 함정 |
+
+**주의:** 웹앱(`lib/db.ts`)과 MCP 서버(`supabase/functions/ip-mcp`)는 같은 데이터를
+쓴다. 한쪽만 Omnis 로 넘기면 두 사본이 갈라지고, 둘 다 정상 동작하는 것처럼 보인다.
+반드시 같이 넘긴다.
+
+`ip.apply_progress_entry` 와 `ip.rebuild_ledger` 는 법정 기한이 걸린 날짜를 정한다.
+TypeScript 로 옮겨 적지 않는다.
