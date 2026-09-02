@@ -39,8 +39,11 @@ jobs:
       # (anon 키는 브라우저 번들에 포함되는 것이 전제이고, 실제 보안은 RLS 가 담당)
       - name: Build (static export)
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # NEXT_PUBLIC_* 는 빌드 시 번들에 인라인된다. 셋 다 비밀이 아니다 —
+          # 발급자 주소와 앱 id 는 어차피 로그인 요청 URL 에 그대로 드러난다.
+          # 자료 접근은 Omnis 가 세션 토큰과 구성원 자격을 보고 판단한다.
+          NEXT_PUBLIC_OMNIS_URL: https://omnis-hadd.vercel.app
+          NEXT_PUBLIC_SSO_APP_ID: ip-platform
           NEXT_PUBLIC_BASE_PATH: /ip-platform
         run: pnpm build
 
