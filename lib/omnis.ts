@@ -50,9 +50,56 @@ export interface OmnisSession {
 
 // ─── 로그인 ─────────────────────────────────────────────────────────
 
-/** Omnis 로그인 화면으로 보낸다. 돌아올 자리는 이 앱 안쪽 경로만 넘긴다. */
+/**
+ * 이 탭에서 로그인 왕복을 이미 한 번 시도했는가.
+ *
+ * 세션이 없을 때 화면은 사용자를 곧바로 발급자로 보낸다 — 이미 로그인돼 있으면
+ * 그 왕복이 눈에 보이지 않기 때문이다. 그런데 왕복이 표 없이 돌아오는 경우가 있다
+ * (쿠키 차단, 저장 실패, 발급자 쪽 거절). 그때 표시를 남기지 않으면 브라우저가
+ * 발급자와 무한히 오간다. 그래서 나갈 때 표시하고, 표를 받아 세션을 만들면 지운다.
+ *
+ * 탭 단위(sessionStorage)인 것이 요점이다. Omnis 사이드바에서 새 탭으로 열면
+ * 그 탭은 처음이므로 자동 진입이 다시 한 번 시도된다.
+ */
+const ATTEMPT_KEY = `hadd.sso.attempt.${APP_ID}`
+
+export function hasTriedSignIn(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.sessionStorage.getItem(ATTEMPT_KEY) === "1"
+  } catch {
+    // sessionStorage 를 못 읽으면 자동 진입을 포기한다. 무한 왕복보다 낫다.
+    return true
+  }
+}
+
+export function markSignInAttempt(): void {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.setItem(ATTEMPT_KEY, "1")
+  } catch {
+    /* 못 쓰면 hasTriedSignIn 이 true 를 돌려주므로 자동 진입이 멈춘다 */
+  }
+}
+
+export function clearSignInAttempt(): void {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.removeItem(ATTEMPT_KEY)
+  } catch {
+    /* 다음 탭에서 풀린다 */
+  }
+}
+
+/**
+ * 발급자의 로그인 화면으로 보낸다. 돌아올 자리는 이 앱 안쪽 경로만 넘긴다.
+ *
+ * 나가기 전에 시도를 표시한다 — 돌아왔는데 표가 없으면 자동 진입을 멈추고
+ * 화면을 보여주기 위해서다.
+ */
 export function startSignIn(returnPath?: string): void {
   if (typeof window === "undefined") return
+  markSignInAttempt()
   const path = returnPath ?? `${BASE_PATH}${window.location.pathname.replace(BASE_PATH, "") || "/"}`
   const url = new URL("/sso/authorize", OMNIS_ORIGIN)
   url.searchParams.set("app", APP_ID)
@@ -107,7 +154,7 @@ function messageFor(code: string): string {
       return "읽기 전용 권한입니다."
     case "origin_not_allowed":
     case "unknown_app":
-      return "이 주소는 Omnis 에 등록돼 있지 않습니다. 관리자에게 알려주세요."
+      return "이 주소는 인증 서버에 등록돼 있지 않습니다. 관리자에게 알려주세요."
     default:
       return "요청을 처리하지 못했습니다. 다시 시도해 주세요."
   }
@@ -121,7 +168,7 @@ export async function redeemGrant(grant: string): Promise<OmnisSession> {
     body: JSON.stringify({ token: grant, app: APP_ID }),
   }).catch(() => null)
 
-  if (!res) throw new OmnisError("network", "Omnis 에 연결하지 못했습니다.")
+  if (!res) throw new OmnisError("network", "인증 서버에 연결하지 못했습니다.")
   const body = (await res.json().catch(() => null)) as
     | { token?: string; expiresAt?: number; user?: OmnisUser; error?: string }
     | null
@@ -196,7 +243,7 @@ export async function api<T>(
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   }).catch(() => null)
 
-  if (!res) throw new OmnisError("network", "Omnis 에 연결하지 못했습니다. 네트워크를 확인해 주세요.")
+  if (!res) throw new OmnisError("network", "인증 서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.")
 
   if (res.status === 401) {
     clearSession()
@@ -223,7 +270,7 @@ export function omnisMcpUrl(): string {
   return `${OMNIS_ORIGIN}/api/ip-mcp`
 }
 
-/** Omnis 의 계정 설정 — 비밀번호·소셜 연결은 저기서 관리한다. */
+/** 계정 설정 — 비밀번호·소셜 연결은 저기서 관리한다. */
 export function omnisSettingsUrl(): string {
   return `${OMNIS_ORIGIN}/settings`
 }

@@ -137,7 +137,7 @@ export function MembersView() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="멤버"
-        description="Omnis 계정에 지식재산권 자료 접근을 열어 줍니다. 계정 자체는 Omnis 에서 만들고, 여기서는 누가 이 자료를 볼 수 있는지만 정합니다."
+        description="HADD 계정에 지식재산권 자료 접근을 열어 줍니다. 계정 자체는 관리자가 만들고, 여기서는 누가 이 자료를 볼 수 있는지만 정합니다."
       />
 
       {error ? (

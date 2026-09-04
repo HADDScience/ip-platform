@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import {
   api,
   clearSession,
+  clearSignInAttempt,
+  hasTriedSignIn,
+  markSignInAttempt,
   OmnisError,
   omnisSettingsUrl,
   readSession,
@@ -52,10 +55,18 @@ type Phase =
  * 계정 하나로 모으면서 그 절차가 계정 발급 시점으로 앞당겨졌다 — 그래서 신청 화면이
  * 통째로 사라졌다.
  *
- * 로그인 화면으로는 허브가 아니라 **Omnis 로 바로 간다.** 예전에 허브를 거친 것은
- * 허브만이 Supabase 세션을 가진 오리진이었기 때문인데, 이제 로그인 화면은 Omnis
- * 하나이므로 중간에 들를 이유가 없다. (허브에서 출발한 사람은 허브가 여기로
- * 되돌려보낸다 — 그쪽 흐름은 그대로다.)
+ * 로그인 화면으로는 허브가 아니라 **발급자로 바로 간다.** 예전에 허브를 거친 것은
+ * 허브만이 Supabase 세션을 가진 오리진이었기 때문인데, 이제 로그인 화면은 하나이므로
+ * 중간에 들를 이유가 없다.
+ *
+ * 세션이 없으면 **버튼을 보여주지 않고 곧바로 보낸다.** 여기는 진입점이 아니다 —
+ * 사람들은 Omnis 사이드바나 허브에서 이미 로그인한 채로 넘어온다. 그 상태에서
+ * 「로그인」 버튼을 내밀면 계정이 두 개인 것처럼 읽힌다. 실제로 이 앱에 필요한 것은
+ * 자기 audience 의 표 하나뿐이고, 그건 발급자 쿠키가 살아 있으면 눈에 보이지 않는
+ * 왕복 한 번으로 끝난다.
+ *
+ * 다만 왕복이 표 없이 돌아올 수 있어(쿠키 차단·거절) 시도를 탭에 표시한다. 두 번째
+ * 부터는 자동으로 보내지 않고 아래 화면을 보여준다 — 무한 왕복을 막는 유일한 장치다.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" })
@@ -100,6 +111,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           const session = await redeemGrant(grant)
           if (cancelled) return
           storeSession(session)
+          clearSignInAttempt()
           await settle(session)
         } catch (err) {
           if (cancelled) return
@@ -115,6 +127,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       const stored = readSession()
       if (!stored || stored.expiresAt <= Date.now()) {
         clearSession()
+        // 이 탭에서 아직 시도한 적이 없으면 조용히 다녀온다. 이미 로그인돼 있으면
+        // 화면이 깜빡이지도 않는다. loading 을 유지한 채 페이지가 떠난다.
+        if (!hasTriedSignIn()) {
+          startSignIn()
+          return
+        }
         setPhase({ kind: "signed-out", error: null })
         return
       }
@@ -129,6 +147,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   function signOut() {
     clearSession()
+    // 표시를 남기지 않으면 로그아웃하자마자 자동 진입이 다시 데려온다 —
+    // 이 탭에서는 로그아웃이 불가능해진다.
+    markSignInAttempt()
     setPhase({ kind: "signed-out", error: null })
   }
 
@@ -165,7 +186,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               rel="noopener noreferrer"
               className="inline-flex items-center px-2 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
-              Omnis 계정 설정
+              계정 설정
             </a>
           </div>
         </div>
@@ -184,10 +205,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             지식재산권 팔로우업
           </h1>
           <p className="mt-2 text-xs/relaxed text-muted-foreground">
-            Omnis 계정으로 로그인하면 이 화면으로 돌아옵니다.
+            HADD 계정으로 로그인하면 이 화면으로 돌아옵니다.
           </p>
           <Button size="sm" className="mt-4" onClick={() => startSignIn()}>
-            Omnis로 로그인
+            HADD 계정으로 로그인
           </Button>
           {phase.error ? (
             <p role="alert" className="mt-3 text-[11px] text-red-600 dark:text-red-400">
