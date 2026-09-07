@@ -219,9 +219,47 @@ function buildClients(token: string | null): Client[] {
     {
       id: "claude-ai",
       name: "claude.ai",
-      disabled:
-        "claude.ai 웹 커넥터에는 붙지 않습니다. 커넥터가 인가 서버 주소를 호스트 루트(/.well-known/…)에서만 찾는데, 이 서버는 Omnis 의 /api/ip-mcp 아래에 있어 그 자리를 쓸 수 없습니다 (Anthropic claude-ai-mcp #341·#367·#376 로 보고된 문제). Claude 를 쓰신다면 「Claude Code」 탭의 커맨드로 붙이면 됩니다 — Claude Desktop 도 같은 방식입니다.",
-      prompt: "",
+      showUrl: true,
+      steps: (
+        <ol className="ml-3.5 list-decimal space-y-1">
+          <li>
+            claude.ai 에서 <b>설정 → 커넥터</b> 를 엽니다.
+          </li>
+          <li>
+            <b>커스텀 커넥터 추가</b> 를 누르고, 이름에 <b>HADD IP</b>, 주소에
+            아래 값을 넣습니다. <b>토큰을 넣는 칸은 없습니다</b> — 승인으로
+            붙습니다.
+          </li>
+          <li>
+            <b>연결</b> 을 누르면 승인 화면이 뜹니다. Omnis 에 로그인돼 있으면
+            버튼 한 번으로 끝납니다.
+          </li>
+        </ol>
+      ),
+      auth: "연결 뒤 대화에서 도구 목록에 hadd-ip 가 보이면 붙은 것입니다.",
+      note: (
+        <>
+          예전에는 이 탭이 잠겨 있었습니다. 커넥터가 인가 서버를 호스트 루트에서
+          찾는데 서버가 Supabase 함수 경로 아래에 있어 그 자리를 쓸 수 없었기
+          때문입니다.{" "}
+          <b>
+            Omnis(Vercel)로 옮기면서 그 자리를 쓸 수 있게 되어 규격대로 열어
+            두었습니다
+          </b>{" "}
+          (RFC 8414 §3.1 · RFC 9728).
+          <br />
+          그래도 붙지 않으면 커넥터 쪽 사정입니다 — 그때는 「Claude Code」 탭의
+          커맨드를 쓰세요. Claude Desktop 도 같은 방식입니다.
+        </>
+      ),
+      prompt: [
+        "claude.ai 에 HADD IP 플랫폼의 MCP 서버를 붙이는 방법:",
+        "",
+        "1. 설정 → 커넥터 → 커스텀 커넥터 추가",
+        "2. 이름: HADD IP",
+        `3. 주소: ${MCP_URL}`,
+        "4. 연결을 누르면 승인 화면이 뜬다. 승인하면 끝 (토큰 필요 없음).",
+      ].join("\n"),
     },
     {
       id: "chatgpt",
