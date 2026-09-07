@@ -17,7 +17,7 @@
  * 하나이므로 중간에 한 번 더 들를 이유가 없다.
  */
 
-const OMNIS_ORIGIN = process.env.NEXT_PUBLIC_OMNIS_URL ?? "https://omnis-hadd.vercel.app"
+const OMNIS_ORIGIN = process.env.NEXT_PUBLIC_OMNIS_URL ?? "https://haddscience.vercel.app/omnis"
 
 /** Omnis 의 앱 화이트리스트(lib/sso.ts)에 등록된 id. 토큰의 audience 이기도 하다. */
 const APP_ID = process.env.NEXT_PUBLIC_SSO_APP_ID ?? "ip-platform"
@@ -101,7 +101,8 @@ export function startSignIn(returnPath?: string): void {
   if (typeof window === "undefined") return
   markSignInAttempt()
   const path = returnPath ?? `${BASE_PATH}${window.location.pathname.replace(BASE_PATH, "") || "/"}`
-  const url = new URL("/sso/authorize", OMNIS_ORIGIN)
+  // new URL("/sso/authorize", origin) 은 origin 의 경로(/omnis)를 지운다 — 이어 붙인다.
+  const url = new URL(`${OMNIS_ORIGIN}/sso/authorize`)
   url.searchParams.set("app", APP_ID)
   url.searchParams.set("next", path)
   window.location.assign(url.toString())
