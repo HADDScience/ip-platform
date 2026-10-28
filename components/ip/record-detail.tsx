@@ -45,6 +45,8 @@ export function CorrectionForm({
     holder: string | null
     appNo: string | null
     regNo: string | null
+    filedOn: string | null
+    registeredOn: string | null
   }
   /** 고를 수 있는 단계. 파이프라인 순서대로 들어온다. */
   stageOptions: string[]
@@ -80,16 +82,23 @@ export function CorrectionForm({
   }
 
   const fields: {
-    key: "name" | "holder" | "appNo" | "regNo"
+    key: "name" | "holder" | "appNo" | "regNo" | "filedOn" | "registeredOn"
     label: string
     now: string | null
     /** 이름·명칭은 비울 수 없다. 지식재산권 목록에서 not null 이다. */
     clearable: boolean
+    /**
+     * 날짜 칸. 출원일·등록일은 진행 기록의 날짜로 한 번 채워질 뿐 그 뒤로는
+     * 바뀌지 않으므로, 틀렸으면 여기서 근거 문서의 날짜로 고친다.
+     */
+    date?: boolean
   }[] = [
     { key: "name", label: nameLabel, now: current.name, clearable: false },
     { key: "holder", label: holderLabel, now: current.holder, clearable: true },
     { key: "appNo", label: "출원번호", now: current.appNo, clearable: true },
     { key: "regNo", label: "등록번호", now: current.regNo, clearable: true },
+    { key: "filedOn", label: "출원일", now: current.filedOn, clearable: true, date: true },
+    { key: "registeredOn", label: "등록일", now: current.registeredOn, clearable: true, date: true },
   ]
 
   return (
@@ -112,6 +121,8 @@ export function CorrectionForm({
               <div className="mb-0.5 flex items-center gap-1.5">
                 <label className="text-[10.5px] text-muted-foreground">
                   {f.label}
+                  {/* 날짜 입력은 placeholder 를 보여주지 않아 지금 값을 여기 적는다. */}
+                  {f.date ? ` (지금: ${f.now ? formatDate(f.now) : "비어 있음"})` : null}
                 </label>
                 {f.clearable && f.now ? (
                   <button
@@ -134,6 +145,7 @@ export function CorrectionForm({
                 ) : null}
               </div>
               <Input
+                type={f.date && !cleared ? "date" : "text"}
                 value={cleared ? "" : (draft[f.key] ?? "")}
                 disabled={cleared}
                 onChange={(e) =>

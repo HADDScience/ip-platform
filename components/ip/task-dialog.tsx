@@ -298,6 +298,8 @@ function TaskDetail({ entry }: { entry: ProgressEntry }) {
                 holder,
                 appNo: row?.appNo ?? null,
                 regNo: row?.regNo ?? null,
+                filedOn: row?.filedOn ?? null,
+                registeredOn: row?.registeredOn ?? null,
               }}
               stageOptions={pipeline}
               onSaved={refresh}

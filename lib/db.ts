@@ -338,6 +338,12 @@ export interface Correction {
   holder?: string
   appNo?: string
   regNo?: string
+  /**
+   * 출원일·등록일 'YYYY-MM-DD'. 단계 규칙과 무관하게 이 값이 된다 —
+   * 출원번호통지서·등록증의 날짜를 적는다.
+   */
+  filedOn?: string
+  registeredOn?: string
   /** 단계 정정. "원래부터 이 단계였다"는 뜻이라 마지막 진행일을 움직이지 않는다. */
   stage?: string
 }
