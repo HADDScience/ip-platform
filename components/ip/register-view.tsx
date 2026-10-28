@@ -551,6 +551,8 @@ export function RegisterView() {
                                   : (row as Trademark).holder,
                                 appNo: row.appNo,
                                 regNo: row.regNo,
+                                filedOn: row.filedOn,
+                                registeredOn: row.registeredOn,
                               }}
                               stageOptions={pipeline}
                               onSaved={refresh}
