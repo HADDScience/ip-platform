@@ -32,6 +32,7 @@ import {
   type StageOrder,
 } from "@/lib/db"
 import { formatDate } from "@/lib/date"
+import { sortByDefault } from "@/lib/stage-order"
 import { cn } from "@/lib/utils"
 import type { Patent, Trademark } from "@/lib/types"
 
@@ -47,6 +48,8 @@ const dash = (v: string | null | undefined) => (v && v !== "" ? v : "—")
 type Kind = "trademark" | "patent"
 type Row = Trademark | Patent
 type Dir = "asc" | "desc"
+
+const DEFAULT_SORT = { key: "status", dir: "asc" as Dir }
 
 /** 열 하나. `value` 는 화면에 그릴 것, `sort` 는 줄을 세울 때 쓸 것. */
 interface Column {
@@ -96,7 +99,10 @@ export function RegisterView() {
   const [tab, setTab] = useState(initialTab)
   const [q, setQ] = useState("")
   const [open, setOpen] = useState<string | null>(null)
-  const [sort, setSort] = useState<{ key: string; dir: Dir } | null>(null)
+  // 처음부터 단계 차례로 세운다. 열 머리를 눌러 다른 기준으로 바꿀 수 있다.
+  const [sort, setSort] = useState<{ key: string; dir: Dir } | null>(
+    DEFAULT_SORT
+  )
   const [showFilter, setShowFilter] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
   const [orderOpen, setOrderOpen] = useState(false)
@@ -168,14 +174,25 @@ export function RegisterView() {
     [stages, kind]
   )
 
-  /** 단계 → 순위. 개인 순서가 먼저고, 거기 없는 단계는 파이프라인 순서로 뒤에 붙는다. */
+  /**
+   * 정렬 기본 차례(등록 > 출원 > 검토 > 거절·포기·중단). 입력 양식·필터는 일의
+   * 흐름대로인 pipeline 을 그대로 쓰고, 줄 세우기만 이 차례를 쓴다.
+   */
+  const defaultOrder = useMemo(
+    () => sortByDefault(pipeline, (v) => pipeline.indexOf(v)),
+    [pipeline]
+  )
+
+  /** 단계 → 순위. 개인 순서가 먼저고, 거기 없는 단계는 기본 차례로 뒤에 붙는다. */
   const stageRank = useMemo(() => {
-    const mine = (stageOrder[kind] ?? []).filter((v) => pipeline.includes(v))
-    const rest = pipeline.filter((v) => !mine.includes(v))
+    const mine = (stageOrder[kind] ?? []).filter((v) =>
+      defaultOrder.includes(v)
+    )
+    const rest = defaultOrder.filter((v) => !mine.includes(v))
     const map = new Map<string, number>()
     ;[...mine, ...rest].forEach((v, i) => map.set(v, i))
     return map
-  }, [stageOrder, kind, pipeline])
+  }, [stageOrder, kind, defaultOrder])
 
   const columns = useMemo(
     () => (isPatent ? patentColumns() : trademarkColumns()),
@@ -260,7 +277,7 @@ export function RegisterView() {
               type="button"
               onClick={() => {
                 setTab(k)
-                setSort(null)
+                setSort(DEFAULT_SORT)
                 setPicked([])
               }}
               className={cn(
@@ -593,7 +610,7 @@ export function RegisterView() {
       <StageOrderDialog
         open={orderOpen}
         onOpenChange={setOrderOpen}
-        stages={pipeline}
+        stages={defaultOrder}
         value={stageOrder[kind] ?? []}
         onSave={async (next) => {
           const merged = { ...stageOrder, [kind]: next }
