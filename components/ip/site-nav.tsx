@@ -37,7 +37,8 @@ export function SiteNav() {
   }, [progress, trademarks, patents, today])
 
   const items: { href: string; label: string; badge?: number }[] = [
-    { href: "/", label: "기록하기" },
+    { href: "/", label: "현황" },
+    { href: "/record", label: "기록하기" },
     // IP 옆 숫자는 보유 건수, 밀린 업무 옆 숫자는 손댈 것의 수다. 뜻이 다르다.
     {
       href: "/register",

@@ -78,7 +78,7 @@ const STEPS: Step[] = [
   {
     title: "기록하기",
     lead: "언제 · 어느 건이 · 어디까지 갔고 · 이제 누구 차례인지.",
-    href: "/",
+    href: "/record",
     target: "record-form",
     body: (
       <ul className="flex flex-col gap-1.5">
@@ -167,7 +167,7 @@ const STEPS: Step[] = [
   {
     title: "AI 도구에 연결하기",
     lead: "여기까지 오셨으면 이것 하나만 더. 입력하는 방식이 바뀝니다.",
-    href: "/",
+    href: "/record",
     target: "mcp",
     body: (
       <div className="flex flex-col gap-2">

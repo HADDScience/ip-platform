@@ -28,24 +28,23 @@ export function StageOrderDialog({
   stages,
   value,
   onSave,
+  description = "단계 열로 정렬할 때 쓸 차례입니다. 위에 있을수록 먼저 옵니다. 이 순서는 본인에게만 적용됩니다.",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** 파이프라인 순서대로 들어온 전체 단계 */
+  /** 기본 순서대로 들어온 전체 단계 — 「기본 순서로」가 이 차례로 되돌린다 */
   stages: string[]
   /** 지금 저장돼 있는 개인 순서 */
   value: string[]
   onSave: (next: string[]) => Promise<void>
+  description?: string
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[26rem]">
         <DialogHeader className="pr-10">
           <DialogTitle>단계 정렬 순서</DialogTitle>
-          <DialogDescription>
-            단계 열로 정렬할 때 쓸 차례입니다. 위에 있을수록 먼저 옵니다. 이
-            순서는 본인에게만 적용됩니다.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         {/*

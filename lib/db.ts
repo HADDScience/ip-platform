@@ -54,8 +54,14 @@ export interface OpeningState {
   sourceNote: string
 }
 
-/** 단계 정렬 순서. 종류별로 사람이 정한 차례. 없는 단계는 파이프라인 순서를 따른다. */
-export type StageOrder = Partial<Record<"trademark" | "patent", string[]>>
+/**
+ * 단계 정렬 순서. 종류별로 사람이 정한 차례. 없는 단계는 파이프라인 순서를 따른다.
+ * overview 는 상표·특허를 섞어 보는 첫 화면(현황)의 차례다. 서버는 이 값을 jsonb 로
+ * 통째 저장하므로 키를 더해도 서버를 고칠 일이 없다.
+ */
+export type StageOrder = Partial<
+  Record<"trademark" | "patent" | "overview", string[]>
+>
 
 export interface Snapshot {
   trademarks: Trademark[]

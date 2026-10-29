@@ -1,5 +1,5 @@
-import { RecordView } from "@/components/ip/record-view"
+import { OverviewView } from "@/components/ip/overview-view"
 
 export default function Page() {
-  return <RecordView />
+  return <OverviewView />
 }
