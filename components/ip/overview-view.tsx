@@ -49,7 +49,27 @@ interface Row {
   rowNote: string
 }
 
-/** 단계 묶음. 앞에 있을수록 먼저 온다. 묶음 안에서는 더 나아간 단계가 먼저다. */
+/**
+ * 기본 줄 차례. 등록 > 출원 > 검토 > 거절·포기·중단, 묶음 안에서는 더 나아간 단계가 먼저.
+ * ip.status_options 의 단계를 전부 적어 둔다. 여기 없는 단계가 새로 생기면
+ * groupOf 로 묶음을 정해 그 묶음 끝에 붙인다.
+ */
+const DEFAULT_ORDER = [
+  "등록",
+  "심사중",
+  "보정서제출",
+  "의견제출통지",
+  "출원공고",
+  "출원",
+  "출원준비",
+  "검토의견",
+  "검토요청",
+  "아이디어",
+  "거절확정",
+  "포기·중단",
+]
+
+/** 단계 묶음. 앞에 있을수록 먼저 온다. */
 function groupOf(stage: string): number {
   if (stage === "등록" || stage === "등록완료") return 0
   if (/거절|포기|중단/.test(stage)) return 3
@@ -150,7 +170,7 @@ export function OverviewView() {
   )
   const byId = useMemo(() => issuesById(issues), [issues])
 
-  /** 기본 차례: 묶음 순서, 묶음 안에서는 파이프라인 뒤쪽(더 나아간 단계)이 먼저 */
+  /** 기본 차례: DEFAULT_ORDER, 거기 없는 단계는 자기 묶음의 끝에 */
   const defaultOrder = useMemo(() => {
     const weight = new Map<string, number>()
     for (const s of stages) {
@@ -158,9 +178,15 @@ export function OverviewView() {
     }
     // 단계표에 없는 옛 값도 표에 나오면 자리를 줘야 한다.
     for (const r of rows) if (!weight.has(r.status)) weight.set(r.status, 0)
+    for (const v of DEFAULT_ORDER) if (!weight.has(v)) weight.set(v, 0)
+    const fixed = (v: string) => {
+      const i = DEFAULT_ORDER.indexOf(v)
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i
+    }
     return [...weight.keys()].sort(
       (a, b) =>
         groupOf(a) - groupOf(b) ||
+        fixed(a) - fixed(b) ||
         (weight.get(b) ?? 0) - (weight.get(a) ?? 0) ||
         a.localeCompare(b, "ko")
     )
@@ -406,7 +432,7 @@ export function OverviewView() {
         onOpenChange={setOrderOpen}
         stages={defaultOrder}
         value={stageOrder.overview ?? []}
-        description="현황 표의 줄 차례입니다. 위에 있을수록 먼저 옵니다. 기본은 등록 → 출원 → 검토 → 거절·포기·중단이고, 이 순서는 본인에게만 적용됩니다."
+        description={`현황 표의 줄 차례입니다. 위에 있을수록 먼저 옵니다. 이 순서는 본인에게만 적용됩니다. 기본: ${defaultOrder.join(" → ")}`}
         onSave={async (next) => {
           const merged = { ...stageOrder, overview: next }
           await saveStageOrder(member.userId, merged)
