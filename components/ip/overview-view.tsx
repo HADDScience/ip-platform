@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Alert02Icon, Timer02Icon } from "@hugeicons/core-free-icons"
 
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/ip/page-header"
@@ -68,7 +66,7 @@ function summarize(row: Row, last: ProgressEntry | undefined): string {
 export function OverviewView() {
   const today = useToday()
   const router = useRouter()
-  const { member, canWrite } = useAuth()
+  const { member } = useAuth()
   const { trademarks, patents, progress, stages } = useData()
 
   const [kind, setKind] = useState<"all" | Kind>("all")
@@ -225,13 +223,6 @@ export function OverviewView() {
       <PageHeader
         title={`지식재산권 현황 ${rows.length}건`}
         description="건마다 지금 어디까지 왔는지와 누구 차례인지입니다. 줄을 누르면 주고받은 메일과 값을 함께 봅니다."
-        action={
-          canWrite ? (
-            <Link href="/record" className={buttonVariants({ size: "sm" })}>
-              기록하기
-            </Link>
-          ) : null
-        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
